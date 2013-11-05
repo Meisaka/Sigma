@@ -2,6 +2,7 @@
 #include "systems/GLSLShader.h"
 #include "systems/GLSixDOFView.h"
 #include "controllers/FPSCamera.h"
+#include "controllers/RiftCamera.h"
 #include "components/GLSprite.h"
 #include "components/GLIcoSphere.h"
 #include "components/GLCubeSphere.h"
@@ -39,6 +40,7 @@ namespace Sigma{
 		retval["GLCubeSphere"] = std::bind(&OpenGLSystem::createGLCubeSphere,this,_1,_2);
 		retval["GLMesh"] = std::bind(&OpenGLSystem::createGLMesh,this,_1,_2);
 		retval["FPSCamera"] = std::bind(&OpenGLSystem::createGLView,this,_1,_2, "FPSCamera");
+		retval["RiftCamera"] = std::bind(&OpenGLSystem::createGLView,this,_1,_2, "RiftCamera");
 		retval["GLSixDOFView"] = std::bind(&OpenGLSystem::createGLView,this,_1,_2, "GLSixDOFView");
 		retval["PointLight"] = std::bind(&OpenGLSystem::createPointLight,this,_1,_2);
 		retval["GLScreenQuad"] = std::bind(&OpenGLSystem::createScreenQuad,this,_1,_2);
@@ -51,6 +53,9 @@ namespace Sigma{
 
 		if(mode=="FPSCamera") {
 			this->views.push_back(new Sigma::event::handler::FPSCamera(entityID));
+		}
+		else if(mode=="RiftCamera") {
+			this->views.push_back(new Sigma::event::handler::RiftCamera(entityID));
 		}
 		else if(mode=="GLSixDOFView") {
 			this->views.push_back(new GLSixDOFView(entityID));
@@ -447,7 +452,7 @@ namespace Sigma{
 
         // Check if the deltaAccumulator is greater than 1/<framerate>th of a second.
         //  ..if so, it's time to render a new frame
-        if (this->deltaAccumulator > 1000.0 / this->framerate) {
+        if (this->deltaAccumulator > 990.0 / this->framerate) {
             
 			// Hacky for now, but if we created at least one render target
 			// then the 0th one is the draw buffer, 1+ could be for post-processing

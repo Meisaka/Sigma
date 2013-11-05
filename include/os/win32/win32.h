@@ -11,7 +11,11 @@ public:
 
 	void ToggleFullscreen();
 
-	const int* StartOpengGL();
+	bool ToggleRiftFullscreen(OVR::HMDInfo*);
+
+	bool InitRift();
+
+	const int* StartOpenGL();
 
 	bool MessageLoop();
 

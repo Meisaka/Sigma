@@ -2,6 +2,7 @@
 
 #include "systems/KeyboardInputSystem.h"
 #include "systems/MouseInputSystem.h"
+#include <OVR.h>
 
 class IOpSys {
 public:
@@ -37,6 +38,20 @@ public:
 	 *
 	 */
 	virtual void ToggleFullscreen() = 0;
+
+	/**
+	 * \brief Toggles to fullscreen on Rift and windowed mode.
+	 *
+	 * \return   bool Returns false if no Rift is found.
+	 */
+	virtual bool ToggleRiftFullscreen(OVR::HMDInfo*) = 0;
+
+	/**
+	 * \brief Initializes the Oculus lib.
+	 *
+	 * \return   bool Returns true on success.
+	 */
+	virtual bool InitRift() = 0;
 
 	/**
 	 * \brief Flips the context buffers

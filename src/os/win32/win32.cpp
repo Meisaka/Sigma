@@ -4,6 +4,7 @@
 
 #include "GL/glew.h"
 #include "GL/wglew.h"
+#include <OVR.h>
 
 Sigma::event::KeyboardInputSystem IOpSys::KeyboardEventSystem; // Handles keyboard events
 Sigma::event::MouseInputSystem IOpSys::MouseEventSystem; // Handles keyboard events
@@ -16,6 +17,46 @@ win32::~win32() {
 	wglDeleteContext(this->hrc); // Delete our rendering context
 
 	ReleaseDC(this->hwnd, this->hdc); // Release the device context from our window
+}
+
+static BOOL CALLBACK win32MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor,LPARAM dwData) {
+	return TRUE;
+}
+
+bool win32::InitRift() {
+	OVR::System::Init(OVR::Log::ConfigureDefaultLog(OVR::LogMask_All));
+	return true;
+}
+
+bool win32::ToggleRiftFullscreen(OVR::HMDInfo *riftinfo) {
+	struct {
+		OVR::HMDInfo *hmd;
+		win32 *win;
+	} searchvals;
+
+	if (this->fullscreen) {
+		this->fullscreen = false;
+		SetWindowLongPtr(this->hwnd, GWL_STYLE, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE);
+		MoveWindow(this->hwnd, this->windowedSize.left, this->windowedSize.top, this->windowedSize.right - this->windowedSize.left, this->windowedSize.bottom - this->windowedSize.top, TRUE);
+	} else {
+		// Save the current windowed position
+		GetWindowRect(this->hwnd, &this->windowedSize);
+
+		SetWindowLongPtr(this->hwnd, GWL_STYLE, WS_SYSMENU | WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE);
+
+		// Get the monitor info about the monitor the window is most over.
+		HMONITOR hmon = MonitorFromWindow(this->hwnd, MONITOR_DEFAULTTONEAREST);
+		MONITORINFO monInfo;
+		monInfo.cbSize = sizeof(MONITORINFO);
+		GetMonitorInfo(hmon, &monInfo);
+
+		EnumDisplayMonitors(NULL, NULL, &win32MonitorEnumProc, (LPARAM)&searchvals);
+
+		// Move the window and resize it to take up the whole monitor
+		MoveWindow(this->hwnd, monInfo.rcMonitor.left, monInfo.rcMonitor.top, monInfo.rcMonitor.right - monInfo.rcMonitor.left, monInfo.rcMonitor.bottom - monInfo.rcMonitor.top, TRUE);
+		this->fullscreen = true;
+	}
+	return true;
 }
 
 void win32::ToggleFullscreen() {
@@ -79,7 +120,7 @@ void* win32::CreateGraphicsWindow(const unsigned int width, const unsigned int h
 	SetCursorPos(midwindow.x, midwindow.y);
 	ShowCursor(false);
 
-	StartOpengGL();
+	StartOpenGL();
 
 	return this->hdc;
 }
@@ -172,7 +213,7 @@ bool win32::KeyDown(int key, bool focused) {
 	return (k & 0x80) > 0 ? true : false;
 }
 
-const int* win32::StartOpengGL() {
+const int* win32::StartOpenGL() {
 	this->fullscreen = false;
 	this->OpenGLVersion[0] = -1;
 	this->OpenGLVersion[1] = -1;

@@ -5,6 +5,7 @@
 #include "systems/FactorySystem.h"
 #include "controllers/GLSixDOFViewController.h"
 #include "controllers/FPSCamera.h"
+#include "controllers/RiftCamera.h"
 #include "components/BulletMover.h"
 #include "components/GLScreenQuad.h"
 #include "SCParser.h"
@@ -118,6 +119,12 @@ int main(int argCount, char **argValues) {
 	if(glsys.GetViewMode() == "FPSCamera") {
 	    using Sigma::event::handler::FPSCamera;
         FPSCamera* theCamera = static_cast<FPSCamera*>(glsys.GetView());
+		IOpSys::KeyboardEventSystem.Register(theCamera);
+		IOpSys::MouseEventSystem.Register(theCamera);
+		theCamera->SetMover(mover);
+	} else if(glsys.GetViewMode() == "RiftCamera") {
+	    using Sigma::event::handler::RiftCamera;
+        RiftCamera* theCamera = static_cast<RiftCamera*>(glsys.GetView());
 		IOpSys::KeyboardEventSystem.Register(theCamera);
 		IOpSys::MouseEventSystem.Register(theCamera);
 		theCamera->SetMover(mover);
