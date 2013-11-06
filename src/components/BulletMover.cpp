@@ -38,6 +38,7 @@ namespace Sigma {
 			targetrvel = this->transform->Restrict(targetrvel);
 			this->transform->Rotate(targetrvel);
 			_rotationtarget -= targetrvel;
+			_rotationtarget *= 0.98f;
 		}
 		targetrvel = this->transform->Restrict(targetrvel);
 		this->rotationForces.clear();

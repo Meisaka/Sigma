@@ -48,6 +48,24 @@ void* SDLSys::CreateGraphicsWindow(const unsigned int width, const unsigned int 
     return &this->_Context;
 }
 
+bool SDLSys::InitRift() {
+	OVR::System::Init(OVR::Log::ConfigureDefaultLog(OVR::LogMask_All));
+	this->ovrDeviceManager = OVR::DeviceManager::Create();
+	if(this->ovrDeviceManager) {
+		this->ovrPrimaryHMD = this->ovrDeviceManager->EnumerateDevices<OVR::HMDDevice>().CreateDevice();
+	}
+	else { return false; }
+	return true;
+}
+
+OVR::HMDDevice * SDLSys::GetRiftHMD() {
+	return this->ovrPrimaryHMD;
+}
+
+bool SDLSys::ToggleRiftFullscreen(const OVR::HMDInfo *riftinfo) {
+	return false;
+}
+
 bool SDLSys::MessageLoop() {
 
     SDL_Event event;

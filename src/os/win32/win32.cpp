@@ -20,15 +20,30 @@ win32::~win32() {
 }
 
 static BOOL CALLBACK win32MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor,LPARAM dwData) {
+	MONITORINFOEX monInfo;
+	monInfo.cbSize = sizeof(MONITORINFOEX);
+	GetMonitorInfo(hMonitor, &monInfo);
+	// Move the window and resize it to take up the whole monitor
+	//MoveWindow(this->hwnd, monInfo.rcMonitor.left, monInfo.rcMonitor.top, monInfo.rcMonitor.right - monInfo.rcMonitor.left, monInfo.rcMonitor.bottom - monInfo.rcMonitor.top, TRUE);
+
 	return TRUE;
 }
 
 bool win32::InitRift() {
 	OVR::System::Init(OVR::Log::ConfigureDefaultLog(OVR::LogMask_All));
+	this->ovrDeviceManager = OVR::DeviceManager::Create();
+	if(this->ovrDeviceManager) {
+		this->ovrPrimaryHMD = this->ovrDeviceManager->EnumerateDevices<OVR::HMDDevice>().CreateDevice();
+	}
+	else { return false; }
 	return true;
 }
 
-bool win32::ToggleRiftFullscreen(OVR::HMDInfo *riftinfo) {
+OVR::HMDDevice * win32::GetRiftHMD() {
+	return this->ovrPrimaryHMD;
+}
+
+bool win32::ToggleRiftFullscreen(const OVR::HMDInfo *riftinfo) {
 	struct {
 		OVR::HMDInfo *hmd;
 		win32 *win;
@@ -44,16 +59,8 @@ bool win32::ToggleRiftFullscreen(OVR::HMDInfo *riftinfo) {
 
 		SetWindowLongPtr(this->hwnd, GWL_STYLE, WS_SYSMENU | WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE);
 
-		// Get the monitor info about the monitor the window is most over.
-		HMONITOR hmon = MonitorFromWindow(this->hwnd, MONITOR_DEFAULTTONEAREST);
-		MONITORINFO monInfo;
-		monInfo.cbSize = sizeof(MONITORINFO);
-		GetMonitorInfo(hmon, &monInfo);
-
 		EnumDisplayMonitors(NULL, NULL, &win32MonitorEnumProc, (LPARAM)&searchvals);
 
-		// Move the window and resize it to take up the whole monitor
-		MoveWindow(this->hwnd, monInfo.rcMonitor.left, monInfo.rcMonitor.top, monInfo.rcMonitor.right - monInfo.rcMonitor.left, monInfo.rcMonitor.bottom - monInfo.rcMonitor.top, TRUE);
 		this->fullscreen = true;
 	}
 	return true;

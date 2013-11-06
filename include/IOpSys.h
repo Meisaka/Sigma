@@ -44,7 +44,7 @@ public:
 	 *
 	 * \return   bool Returns false if no Rift is found.
 	 */
-	virtual bool ToggleRiftFullscreen(OVR::HMDInfo*) = 0;
+	virtual bool ToggleRiftFullscreen(const OVR::HMDInfo*) = 0;
 
 	/**
 	 * \brief Initializes the Oculus lib.
@@ -52,6 +52,13 @@ public:
 	 * \return   bool Returns true on success.
 	 */
 	virtual bool InitRift() = 0;
+
+	/**
+	 * \brief  Get the primary HMD Device, requires a prior call to InitRift.
+	 *
+	 * \return   A pointer to the HMD interface, or NULL on error.
+	 */
+	virtual OVR::HMDDevice * GetRiftHMD() = 0;
 
 	/**
 	 * \brief Flips the context buffers
@@ -144,4 +151,8 @@ public:
 
 protected:
 	static double curDelta; // Current delta time
+
+	OVR::DeviceManager * ovrDeviceManager; // needed to get the HMDDevice
+	OVR::HMDDevice * ovrPrimaryHMD; // the default HMDDevice, there should only be one ;)
+
 };

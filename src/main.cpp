@@ -24,6 +24,8 @@ int main(int argCount, char **argValues) {
 	factory.register_Factory(glsys);
 	factory.register_Factory(bphys);
 
+	bool riftpresent = false;
+
 	IOpSys* os = nullptr;
 
 #if defined OS_Win32
@@ -32,6 +34,9 @@ int main(int argCount, char **argValues) {
 	os = new SDLSys();
 #endif
 
+	if(os->InitRift()) {
+		riftpresent = true;
+	}
 	// Create the window
 	std::cout << "Creating graphics window." << std::endl;
 	if(os->CreateGraphicsWindow(1024,768) == 0) {
@@ -128,6 +133,9 @@ int main(int argCount, char **argValues) {
 		IOpSys::KeyboardEventSystem.Register(theCamera);
 		IOpSys::MouseEventSystem.Register(theCamera);
 		theCamera->SetMover(mover);
+		if(riftpresent) {
+			theCamera->SetHMD(os->GetRiftHMD());
+		}
 	} else if (glsys.GetViewMode() == "GLSixDOFView") {
 		Sigma::event::handler::GLSixDOFViewController cameraController(glsys.GetView(), mover);
 		IOpSys::KeyboardEventSystem.Register(&cameraController);

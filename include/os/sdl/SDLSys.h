@@ -37,6 +37,10 @@ public:
 	virtual void* CreateGraphicsWindow(const unsigned int width = 800, const unsigned int height = 600);
 	virtual void ToggleFullscreen();
 
+	virtual bool ToggleRiftFullscreen(const OVR::HMDInfo*);
+	virtual bool InitRift();
+	virtual OVR::HMDDevice * GetRiftHMD();
+
 	virtual bool MessageLoop();
 
 	virtual bool SetupTimer();
