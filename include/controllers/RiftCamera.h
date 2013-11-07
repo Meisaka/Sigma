@@ -23,6 +23,8 @@ namespace Sigma {
 
 				bool SetHMD(OVR::HMDDevice *);
 
+				const OVR::HMDInfo& GetHMDInfo() { return ovrInfo; }
+
 				bool ClearHMD();
 			private:
 				OVR::HMDDevice * ovrHMD;

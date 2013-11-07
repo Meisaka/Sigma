@@ -75,6 +75,12 @@ endif(NOT OPENGL_FOUND)
 
 # Figure out what Operating System to compile against
 if(WIN32 AND NOT MINGW) # Windows
+	if(NOT OVR_INCLUDE_PATH)
+		set(OVR_INCLUDE_PATH "" CACHE PATH "Path for Oculus VR Includes")
+	else(NOT OVR_INCLUDE_PATH)
+		include_directories("${OVR_INCLUDE_PATH}")
+	endif(NOT OVR_INCLUDE_PATH)
+
 	set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} ${CMAKE_SOURCE_DIR}/include/libraries)
 	include_directories("${CMAKE_SOURCE_DIR}/include/libraries")
 	set(CMAKE_LIBRARY_PATH ${CMAKE_SOURCE_DIR}/lib/x86)
@@ -84,7 +90,10 @@ if(WIN32 AND NOT MINGW) # Windows
 	set(BULLET_LINEARMATH_LIBRARIES LinearMath)
 	set(BULLET_COLLISION_LIBRARIES BulletCollision)
 	set(BULLET_DYNAMICS_LIBRARIES BulletDynamics)
+	set(OVR_LIBRARY "libovr" CACHE STRING "Oculus VR Lib to use")
+	set(EXTRA_LIBRARIES winmm)
 	SET(SOIL_LIBRARY SOIL)
+
 	set(IOPSYS "OS_Win32" CACHE STRING "Select the Op Sys you want to use")
 endif(WIN32 AND NOT MINGW)
 
@@ -121,6 +130,8 @@ endif(APPLE)
 # Add a cache line to allow choosing between IOpSys
 set_property(CACHE IOPSYS PROPERTY STRINGS "OS_SDL" "OS_Win32")
 
+set_property(CACHE OVR_LIBRARY PROPERTY STRINGS "libovr" "libovrd" "libovr64" "libovr64d")
+
 #Add in our IOpSys
 message("Using ${IOPSYS}...")
 add_subdirectory("src/os")
@@ -132,7 +143,7 @@ add_executable(Sigma ${Sigma_SRC} ${Sigma_SRC_COMPONENT_H} ${Sigma_SRC_COMPONENT
 add_definitions(-D${IOPSYS})
 
 # Link the executable to the Hello library.
-target_link_libraries (Sigma ${Sigma_LIB} ${OPENGL_LIBRARIES} ${GLEW_LIBRARY} ${SOIL_LIBRARY} ${BULLET_LINEARMATH_LIBRARIES} ${BULLET_COLLISION_LIBRARIES} ${BULLET_DYNAMICS_LIBRARIES})
+target_link_libraries (Sigma ${Sigma_LIB} ${OPENGL_LIBRARIES} ${OVR_LIBRARY} ${EXTRA_LIBRARIES} ${GLEW_LIBRARY} ${SOIL_LIBRARY} ${BULLET_LINEARMATH_LIBRARIES} ${BULLET_COLLISION_LIBRARIES} ${BULLET_DYNAMICS_LIBRARIES})
 
 # build the Tests subproject
 #ADD_SUBDIRECTORY("${CMAKE_SOURCE_DIR}/tests")

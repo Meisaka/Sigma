@@ -135,6 +135,7 @@ int main(int argCount, char **argValues) {
 		theCamera->SetMover(mover);
 		if(riftpresent) {
 			theCamera->SetHMD(os->GetRiftHMD());
+			glsys.SetStereoMode(theCamera->GetHMDInfo());
 		}
 	} else if (glsys.GetViewMode() == "GLSixDOFView") {
 		Sigma::event::handler::GLSixDOFViewController cameraController(glsys.GetView(), mover);

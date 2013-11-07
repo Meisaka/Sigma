@@ -28,7 +28,7 @@ namespace Sigma{
 	}
 
     OpenGLSystem::OpenGLSystem() : windowWidth(800), windowHeight(600), deltaAccumulator(0.0),
-		framerate(60.0f), viewMode("") {}
+		framerate(60.0f), viewMode(""), renderMode(GLS_NONE) {}
 
 	std::map<std::string, Sigma::IFactory::FactoryFunction>
         OpenGLSystem::getFactoryFunctions() {
@@ -401,6 +401,85 @@ namespace Sigma{
 		return light;
 	}
 
+	bool OpenGLSystem::SetStereoMode(const OVR::HMDInfo& riftinfo, GLSysRenderMode mode) {
+		if(mode == GLS_RIFT) {
+			const float scalefactor = 1.25f;
+			GLsizei ossx,ossy;
+			GLsizei riftresx,riftresy;
+			float aspect;
+			float sfov;
+			float pofs;
+			float pshift;
+			float xcen,scf;
+			float scrw, scrh, scrx;
+
+			// Math for rift stereo, definitions are somewhat scattered through RiftSDK.
+			riftresx = riftinfo.HResolution;
+			ossx = (GLsizei)((float)riftresx * scalefactor);
+			riftresy = riftinfo.VResolution;
+			ossy = (GLsizei)((float)riftresy * scalefactor);
+			scrw = 0.5f * (float)riftresx / (float)riftresx;
+			scrh = (float)riftresy / (float)riftresy; // I know this is 1, but it *might* change
+			scrx = ((float)riftresx * 0.5f) / (float)riftresx;
+			sfov = 2.0f * atan(riftinfo.VScreenSize / (2.0f * riftinfo.EyeToScreenDistance));
+			pshift = (riftinfo.HScreenSize * 0.25f) - (riftinfo.LensSeparationDistance * 0.5f);
+			pofs = (4.0f * pshift) / riftinfo.HScreenSize;
+			
+			aspect = ((float)riftresx) / (2.0f * (float)riftresy);
+			scf = 1.0f / scalefactor;
+			xcen = 1.0f - (2.0f * riftinfo.LensSeparationDistance / riftinfo.HScreenSize);
+			riftLensCenterL.x = (scrw + xcen * 0.5f) * 0.5f;
+			riftLensCenterL.y = scrh * 0.5f;
+			riftLensCenterR.x = scrx + (scrw - xcen * 0.5f) * 0.5f;
+			riftLensCenterR.y = scrh * 0.5f;
+			riftScaleOut.x = (scrw / 2.0f) * scf;
+			riftScaleOut.y = (scrh / 2.0f) * scf * aspect;
+			riftScaleIn.x = (2.0f / scrw);
+			riftScaleIn.y = (2.0f / scrh) / aspect;
+			riftScreenCenterL.x = scrw * 0.5f;
+			riftScreenCenterL.y = scrh * 0.5f;
+			riftScreenCenterR.x = scrx + (scrw * 0.5f);
+			riftScreenCenterR.y = scrh * 0.5f;
+			riftDistortionK = glm::vec4(
+				riftinfo.DistortionK[0],
+				riftinfo.DistortionK[1],
+				riftinfo.DistortionK[2],
+				riftinfo.DistortionK[3]
+				);
+			riftChromaK = glm::vec4(
+				riftinfo.ChromaAbCorrection[0],
+				riftinfo.ChromaAbCorrection[1],
+				riftinfo.ChromaAbCorrection[2],
+				riftinfo.ChromaAbCorrection[3]
+				);
+			stereoFBTw = ossx; // frame buffer size (not the same as screen size, usually larger)
+			stereoFBTh = ossy;
+			stereoLeftVPx = 0; // viewport settings (left)
+			stereoLeftVPy = 0;
+			stereoLeftVPw = ossx / 2;
+			stereoLeftVPh = ossy;
+			stereoRightVPx = stereoLeftVPw + stereoLeftVPx; // viewport settings (right)
+			stereoRightVPy = 0;
+			stereoRightVPw = ossx / 2;
+			stereoRightVPh = ossy;
+			// Generate projection matrix for each eye
+			glm::mat4 projbase = glm::perspective(sfov, aspect, 0.1f, 10000.0f);
+			this->stereoProjectionLeft = glm::translate(projbase, pofs, 0.0f, 0.0f);
+			this->stereoProjectionRight = glm::translate(projbase, -pofs, 0.0f, 0.0f);
+
+			// translate view matrix X Coord by these
+			stereoViewLeft = riftinfo.InterpupillaryDistance * 0.5f;
+			stereoViewRight = riftinfo.InterpupillaryDistance * -0.5f;
+		}
+		renderMode = mode;
+		return true;
+	}
+
+	bool OpenGLSystem::SetStereoMode(GLSysRenderMode mode) {
+		renderMode = mode;
+		return true;
+	}
+
 	int OpenGLSystem::createRenderTarget(const unsigned int w, const unsigned int h, const unsigned int format) {
 		std::unique_ptr<RenderTarget> newRT(new RenderTarget());
 
@@ -433,7 +512,8 @@ namespace Sigma{
 
 		switch(status) {
 			case GL_FRAMEBUFFER_COMPLETE:
-				std::cout << "Successfully created render target.";
+				std::cout << "Successfully created render target." << std::endl;
+				break;
 			default:
 				std::cerr << "Error: Framebuffer format is not compatible." << std::endl;
 		}
@@ -452,7 +532,7 @@ namespace Sigma{
 
         // Check if the deltaAccumulator is greater than 1/<framerate>th of a second.
         //  ..if so, it's time to render a new frame
-        if (this->deltaAccumulator > 990.0 / this->framerate) {
+        if (this->deltaAccumulator > 1000.0 / this->framerate) {
             
 			// Hacky for now, but if we created at least one render target
 			// then the 0th one is the draw buffer, 1+ could be for post-processing

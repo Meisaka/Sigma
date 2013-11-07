@@ -15,6 +15,7 @@
 #include "IGLComponent.h"
 #include "systems/IGLView.h"
 #include <vector>
+#include <OVR.h>
 
 struct IGLView;
 
@@ -29,6 +30,14 @@ namespace Sigma{
 		virtual ~RenderTarget();
 
 		void Use(int slot);
+	};
+
+	enum GLSysRenderMode {
+		GLS_NONE = 0,
+		GLS_DEFAULT = 0,
+		GLS_STEREOHSPLIT,
+		GLS_STEREOHDOUBLE,
+		GLS_RIFT
 	};
 
     class OpenGLSystem
@@ -121,6 +130,14 @@ namespace Sigma{
 		}
 
 		/**
+		 * \brief Sets mode for rendering and computes view parameters.
+		 *
+		 * \return bool true for success.
+		 */
+		bool SetStereoMode(GLSysRenderMode mode = GLS_NONE);
+		bool SetStereoMode(const OVR::HMDInfo&, GLSysRenderMode mode = GLS_RIFT);
+
+		/**
 		 * \brief Adds a view to the stack.
 		 *
 		 * \param[in/out] IGLView * view The view to add to the stack.
@@ -158,10 +175,36 @@ namespace Sigma{
 
         int OpenGLVersion[2];
 
+		GLSysRenderMode renderMode;
+
 		// Scene matrices
         glm::mat4 ProjectionMatrix;
         std::vector<IGLView*> views; // A stack of the view. A vector is used to support random access.
+		
+		glm::mat4 stereoProjectionLeft; // projections for stereo render
+        glm::mat4 stereoProjectionRight;
+		float stereoViewLeft; // displacements for view matrix
+		float stereoViewRight;
+		GLsizei stereoFBTw; // frame buffer size (not the same as screen size, usually larger)
+        GLsizei stereoFBTh;
+		GLint stereoLeftVPx; // viewport settings (left)
+        GLint stereoLeftVPy;
+        GLsizei stereoLeftVPw;
+        GLsizei stereoLeftVPh;
+        GLint stereoRightVPx; // viewport settings (right)
+        GLint stereoRightVPy;
+        GLsizei stereoRightVPw;
+        GLsizei stereoRightVPh;
 
+		glm::vec2 riftLensCenterL;
+        glm::vec2 riftLensCenterR;
+        glm::vec2 riftScreenCenterL;
+        glm::vec2 riftScreenCenterR;
+        glm::vec2 riftScaleOut;
+        glm::vec2 riftScaleIn;
+		glm::vec4 riftDistortionK;
+		glm::vec4 riftChromaK;
+        
         double deltaAccumulator; // milliseconds since last render
         double framerate; // default is 60fps
 		
