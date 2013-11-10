@@ -46,6 +46,7 @@ namespace Sigma {
 				 * \return const glm::mat4 The current view matrix.
 				 */
 				const glm::mat4 GetViewMatrix();
+				virtual const glm::mat4 GetViewMatrix(ViewSelection, float ipd = 0.0f) { return GetViewMatrix(); }
 
 				/**
 				 * \brief Sets the view mover for this event handler.

@@ -20,6 +20,7 @@ namespace Sigma {
 				 * \return const glm::mat4 The current view matrix.
 				 */
 				const glm::mat4 GetViewMatrix();
+				const glm::mat4 GetViewMatrix(ViewSelection, float ipd = 0.0f);
 
 				bool SetHMD(OVR::HMDDevice *);
 
