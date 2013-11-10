@@ -137,7 +137,7 @@ int main(int argCount, char **argValues) {
 			theCamera->SetHMD(os->GetRiftHMD());
 			RInfo = &theCamera->GetHMDInfo();
 			glsys.SetStereoMode(*RInfo);
-			glsys.SetFrameRate(80.0f);
+			glsys.SetFrameRate(90.0f);
 			os->ToggleRiftFullscreen(*RInfo);
 			glsys.SetViewportSize(os->GetWindowWidth(), os->GetWindowHeight());
 		}

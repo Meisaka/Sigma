@@ -196,6 +196,7 @@ namespace Sigma{
 		int subdivision_levels = 1;
 		float rotation_speed = 0.0f;
 		bool fix_to_camera = false;
+		bool infinite_distance = false;
 
 		float scale = 1.0f;
 		float x = 0.0f;
@@ -245,13 +246,18 @@ namespace Sigma{
 			}
 			else if (p->GetName() == "fix_to_camera") {
 				fix_to_camera = p->Get<bool>();
-			} else if (p->GetName() == "lightEnabled") {
+			}
+			else if (p->GetName() == "infinite_distance") {
+				infinite_distance = p->Get<bool>();
+			}
+			else if (p->GetName() == "lightEnabled") {
 				sphere->SetLightingEnabled(p->Get<bool>());
 			}
 		}
 
 		sphere->SetSubdivisions(subdivision_levels);
 		sphere->SetFixToCamera(fix_to_camera);
+		sphere->SetInfiniteDistance(infinite_distance);
 		sphere->SetCullFace(cull_face);
 		sphere->Transform()->Scale(scale,scale,scale);
 		sphere->Transform()->Rotate(rx,ry,rz);
@@ -492,7 +498,7 @@ namespace Sigma{
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 		//NULL means reserve texture memory, but texels are undefined
 		glTexImage2D(GL_TEXTURE_2D, 0, (GLint)format, (GLsizei)w, (GLsizei)h, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
@@ -547,6 +553,7 @@ namespace Sigma{
 
 			//glm::vec3 viewPosition;
 			glm::mat4 viewMatrix;
+			glm::mat4 viewInfMatrix;
 			glm::mat4 viewProj;
 			glm::mat4 ProjMatrix;
 			
@@ -566,7 +573,10 @@ namespace Sigma{
 				else {
 				glViewport(stereoRightVPx, stereoRightVPy, stereoRightVPw, stereoRightVPh);
 				}
-				
+
+				if (this->views.size() > 0) {
+					viewInfMatrix = this->views[this->views.size() - 1]->GetViewMatrix(VIEW_INFINITE);
+				}
 				if(renderstage == 0) {
 					if (this->views.size() > 0) {
 						viewMatrix = this->views[this->views.size() - 1]->GetViewMatrix(VIEW_LEFT,stereoViewIPD);
@@ -590,7 +600,7 @@ namespace Sigma{
 			}
 			else {
 				if(this->renderTargets.size() > 0) {
-					glViewport(0, 0, 1600, 1000); // Set the viewport size to fill the framebuffer
+					glViewport(0, 0, stereoFBTw, stereoFBTh); // Set the viewport size to fill the framebuffer
 				}
 				else {
 					glViewport(0, 0, windowWidth, windowHeight); // Set the viewport size to fill the window
@@ -598,10 +608,10 @@ namespace Sigma{
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
 
 				if (this->views.size() > 0) {
-					viewMatrix = this->views[this->views.size() - 1]->GetViewMatrix();
+					viewInfMatrix = this->views[this->views.size() - 1]->GetViewMatrix();
 					//viewPosition = this->views[this->views.size() - 1]->Transform.GetPosition();
 				}
-				viewProj = viewMatrix;
+				viewProj = viewMatrix = viewInfMatrix;
 				viewProj *= this->ProjectionMatrix;
 				ProjMatrix= this->ProjectionMatrix;
 			}
@@ -636,7 +646,12 @@ namespace Sigma{
 						glUniform1f(glGetUniformLocation(glComp->GetShader()->GetProgram(), "ambLightIntensity"), 0.05f);
 						glUniform1f(glGetUniformLocation(glComp->GetShader()->GetProgram(), "diffuseLightIntensity"), 0.0f);
 						glUniform1f(glGetUniformLocation(glComp->GetShader()->GetProgram(), "specularLightIntensity"), 0.0f);
-						glComp->Render(&viewMatrix[0][0], &ProjMatrix[0][0]);
+						if(glComp->IsInfiniteDistance()) {
+							glComp->Render(&viewInfMatrix[0][0], &ProjMatrix[0][0]);
+						}
+						else {
+							glComp->Render(&viewMatrix[0][0], &ProjMatrix[0][0]);
+						}
 					}
 				}
 			}
@@ -675,7 +690,12 @@ namespace Sigma{
 									light->Activate(glComp->GetShader().get());
 
 									// Render
-									glComp->Render(&viewMatrix[0][0], &ProjMatrix[0][0]);
+									if(glComp->IsInfiniteDistance()) {
+										glComp->Render(&viewInfMatrix[0][0], &ProjMatrix[0][0]);
+									}
+									else {
+										glComp->Render(&viewMatrix[0][0], &ProjMatrix[0][0]);
+									}
 								}
 							}
 						}
@@ -717,6 +737,7 @@ namespace Sigma{
 				glEnable(GL_CULL_FACE);
 				glBindTexture(GL_TEXTURE_2D, 0);
 				glDepthFunc(GL_LESS);
+				glFinish();
 			}
 
             this->deltaAccumulator = 0.0;

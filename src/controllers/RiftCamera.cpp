@@ -47,7 +47,7 @@ namespace Sigma {
 				}
 				glm::mat4 viewMatrix = glm::mat4(1.0f);
 				viewMatrix = glm::translate(trans,0.0f,0.0f) * viewMatrix;
-				viewMatrix = glm::rotate(viewMatrix, this->Transform.GetPitch(), glm::vec3(1.0f, 0, 0));
+				//viewMatrix = glm::rotate(viewMatrix, this->Transform.GetPitch(), glm::vec3(1.0f, 0, 0));
 				viewMatrix = glm::rotate(viewMatrix, -90.0f, glm::vec3(0.0f, 1.0f, 0.0f));
 				viewMatrix = glm::rotate(viewMatrix, 180.0f, glm::vec3(1.0f, 0.0f, 0.0f));
 				viewMatrix = viewMatrix * glm::mat4_cast(vieworient);
@@ -55,7 +55,9 @@ namespace Sigma {
 				viewMatrix = glm::rotate(viewMatrix, 180.0f, glm::vec3(1.0f, 0.0f, 0.0f));
 				viewMatrix = glm::rotate(viewMatrix, 180.0f, glm::vec3(0.0f, 0.0f, 1.0f));
 				viewMatrix = glm::rotate(viewMatrix, this->Transform.GetYaw(), glm::vec3(0, 1.0f, 0));
-				viewMatrix = glm::translate(viewMatrix, -1.0f * this->Transform.GetPosition());
+				if(V != VIEW_INFINITE) {
+					viewMatrix = glm::translate(viewMatrix, -1.0f * this->Transform.GetPosition());
+				}
 				return viewMatrix;
 			}
 

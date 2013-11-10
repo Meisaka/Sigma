@@ -50,7 +50,8 @@ namespace Sigma{
 	enum ViewSelection {
 		VIEW_CENTER,
 		VIEW_LEFT,
-		VIEW_RIGHT
+		VIEW_RIGHT,
+		VIEW_INFINITE, // no position translation
 	};
 
     struct IGLView : public Sigma::IComponent {

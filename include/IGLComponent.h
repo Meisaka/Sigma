@@ -61,7 +61,7 @@ namespace Sigma {
 	class IGLComponent : public IComponent {
 	public:
 		IGLComponent() : IComponent(0) { } // Default ctor setting entity ID to 0.
-		IGLComponent(const int entityID) : lightingEnabled(true), IComponent(entityID) { } // Ctor that sets the entity ID.
+		IGLComponent(const int entityID) : lightingEnabled(true), infiniteDistance(false), IComponent(entityID) { } // Ctor that sets the entity ID.
 
         typedef std::unordered_map<std::string, std::shared_ptr<GLSLShader>> ShaderMap;
 
@@ -147,6 +147,9 @@ namespace Sigma {
 		void SetLightingEnabled(bool enabled) { this->lightingEnabled = enabled; }
 		bool IsLightingEnabled() { return this->lightingEnabled; }
 
+		void SetInfiniteDistance(bool enabled) { this->infiniteDistance = enabled; }
+		bool IsInfiniteDistance() { return this->infiniteDistance; }
+
 		// The index in buffers for each type of buffer.
 		int ElemBufIndex;
 		int VertBufIndex;
@@ -166,6 +169,7 @@ namespace Sigma {
         static ShaderMap loadedShaders;
 
 		bool lightingEnabled;
+		bool infiniteDistance;
 	}; // class IGLComponent
 } // namespace Sigma
 
