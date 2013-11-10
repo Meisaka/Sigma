@@ -471,6 +471,9 @@ namespace Sigma{
 			stereoViewIPD = riftinfo.InterpupillaryDistance * 0.1f;
 			stereoViewLeft = stereoViewIPD * 0.5f;
 			stereoViewRight = stereoViewIPD * -0.5f;
+			if(this->renderTargets.size() < 1) {
+				this->createRenderTarget(ossx, ossy, GL_RGBA8);
+			}
 		}
 		renderMode = mode;
 		return true;
@@ -537,24 +540,71 @@ namespace Sigma{
             
 			// Hacky for now, but if we created at least one render target
 			// then the 0th one is the draw buffer, 1+ could be for post-processing
-			if(this->renderTargets.size() > 0) {
+			if(renderMode != GLS_NONE && this->renderTargets.size() > 0) {
 				// Bind the primary render target
 				glBindFramebuffer(GL_FRAMEBUFFER, this->renderTargets[0]->fbo_id);
 			}
 
-			glm::vec3 viewPosition;
-
-            // Set up the scene to a "clean" state.
-            glClearColor(0.0f,0.0f,0.0f,0.0f);
-            glViewport(0, 0, windowWidth, windowHeight); // Set the viewport size to fill the window
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
-
+			//glm::vec3 viewPosition;
 			glm::mat4 viewMatrix;
-			if (this->views.size() > 0) {
-				viewMatrix = this->views[this->views.size() - 1]->GetViewMatrix();
-				viewPosition = this->views[this->views.size() - 1]->Transform.GetPosition();
-			}
+			glm::mat4 viewProj;
+			glm::mat4 ProjMatrix;
+			
+			int looprender;
+			int renderstage;
+			if(renderMode == GLS_RIFT) { looprender = 1; } else { looprender = 0; }
 
+            glClearColor(0.0f,0.0f,0.0f,0.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
+			for(renderstage = 0; renderstage <= looprender; renderstage++) {
+            // Set up the scene to a "clean" state.
+
+			if(renderMode == GLS_RIFT && this->renderTargets.size() > 0) {
+				if(renderstage == 0) { // Set the viewport size to half fill the framebuffer
+				glViewport(stereoLeftVPx, stereoLeftVPy, stereoLeftVPw, stereoLeftVPh);
+				}
+				else {
+				glViewport(stereoRightVPx, stereoRightVPy, stereoRightVPw, stereoRightVPh);
+				}
+				
+				if(renderstage == 0) {
+					if (this->views.size() > 0) {
+						viewMatrix = this->views[this->views.size() - 1]->GetViewMatrix(VIEW_LEFT,stereoViewIPD);
+						//viewPosition = this->views[this->views.size() - 1]->Transform.GetPosition();
+					}
+					//viewMatrix = glm::translate(viewMatrix,-stereoViewLeft,0.0f,0.0f);
+					viewProj = viewMatrix;
+					ProjMatrix = this->stereoProjectionLeft;
+					viewProj = ProjMatrix * viewProj;
+				}
+				else {
+					if (this->views.size() > 0) {
+						viewMatrix = this->views[this->views.size() - 1]->GetViewMatrix(VIEW_RIGHT,stereoViewIPD);
+						//viewPosition = this->views[this->views.size() - 1]->Transform.GetPosition();
+					}
+					//viewMatrix = glm::translate(viewMatrix,-stereoViewRight,0.0f,0.0f);
+					viewProj = viewMatrix;
+					ProjMatrix = this->stereoProjectionRight;
+					viewProj = ProjMatrix * viewProj;
+				}
+			}
+			else {
+				if(this->renderTargets.size() > 0) {
+					glViewport(0, 0, 1600, 1000); // Set the viewport size to fill the framebuffer
+				}
+				else {
+					glViewport(0, 0, windowWidth, windowHeight); // Set the viewport size to fill the window
+				}
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
+
+				if (this->views.size() > 0) {
+					viewMatrix = this->views[this->views.size() - 1]->GetViewMatrix();
+					//viewPosition = this->views[this->views.size() - 1]->Transform.GetPosition();
+				}
+				viewProj = viewMatrix;
+				viewProj *= this->ProjectionMatrix;
+				ProjMatrix= this->ProjectionMatrix;
+			}
 			// Loop through each light, rendering all components
 			// TODO: Cull components based on light
 			// TODO: Implement scissors test
@@ -564,8 +614,7 @@ namespace Sigma{
 			// Ambient Pass
 			// Loop through and draw each component.
 
-			glm::mat4 viewProj = viewMatrix;
-			viewProj *= this->ProjectionMatrix;
+			
 
 			// Calculate frustum for culling
 			this->GetView(0)->CalculateFrustum(viewProj);
@@ -581,13 +630,13 @@ namespace Sigma{
 						glComp->GetShader()->Use();
 
 						// Set view position
-						glUniform3f(glGetUniformBlockIndex(glComp->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
+						//glUniform3f(glGetUniformBlockIndex(glComp->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
 
 						// For now, turn on ambient intensity and turn off lighting
 						glUniform1f(glGetUniformLocation(glComp->GetShader()->GetProgram(), "ambLightIntensity"), 0.05f);
 						glUniform1f(glGetUniformLocation(glComp->GetShader()->GetProgram(), "diffuseLightIntensity"), 0.0f);
 						glUniform1f(glGetUniformLocation(glComp->GetShader()->GetProgram(), "specularLightIntensity"), 0.0f);
-						glComp->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
+						glComp->Render(&viewMatrix[0][0], &ProjMatrix[0][0]);
 					}
 				}
 			}
@@ -620,13 +669,13 @@ namespace Sigma{
 									glUniform1f(glGetUniformLocation(glComp->GetShader()->GetProgram(), "ambLightIntensity"), 0.0f);
 
 									// Set view position
-									glUniform3f(glGetUniformBlockIndex(glComp->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
+									//glUniform3f(glGetUniformBlockIndex(glComp->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
 
 									// Activate the current point light for this shader
 									light->Activate(glComp->GetShader().get());
 
 									// Render
-									glComp->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
+									glComp->Render(&viewMatrix[0][0], &ProjMatrix[0][0]);
 								}
 							}
 						}
@@ -639,9 +688,36 @@ namespace Sigma{
 					}
 				}
 			}
-
+			} // for renderstage ... avoid diffs
 			// Unbind frame buffer
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+			// Stereo post processing (for Rift)
+			if(renderMode == GLS_RIFT && this->renderTargets.size() > 0) {
+				glViewport(0, 0, windowWidth, windowHeight);
+				glDepthFunc(GL_ALWAYS);
+				glDisable(GL_CULL_FACE);
+				glBindVertexArray(this->multipassVAO);
+				this->multipassShader->Use();
+				glUniform1i((*multipassShader)("in_Texture"), 0);
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_id);
+				GLuint pgm = this->multipassShader->GetProgram();
+				glUniform2f(glGetUniformLocation(pgm, "ScaleIn"), riftScaleIn.x, riftScaleIn.y);
+				glUniform2f(glGetUniformLocation(pgm, "ScaleOut"), riftScaleOut.x, riftScaleOut.y);
+				glUniform4f(glGetUniformLocation(pgm, "kfact"), riftDistortionK.x, riftDistortionK.y, riftDistortionK.z, riftDistortionK.w);
+				glUniform4f(glGetUniformLocation(pgm, "cfact"), riftChromaK.x, riftChromaK.y, riftChromaK.z, riftChromaK.w);
+				glUniform4f(glGetUniformLocation(pgm, "LensCenter"), riftLensCenterL.x, riftLensCenterL.y, riftLensCenterR.x, riftLensCenterR.y);
+				glUniform4f(glGetUniformLocation(pgm, "ScreenCenter"), riftScreenCenterL.x, riftScreenCenterL.y, riftScreenCenterR.x, riftScreenCenterR.y);
+				
+				glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+				// done
+				this->multipassShader->UnUse();
+				glBindVertexArray(0);
+				glEnable(GL_CULL_FACE);
+				glBindTexture(GL_TEXTURE_2D, 0);
+				glDepthFunc(GL_LESS);
+			}
 
             this->deltaAccumulator = 0.0;
             return true;
@@ -699,6 +775,37 @@ namespace Sigma{
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
 
+		// Hack in a full screen quad for post processing
+		this->multipassShader = new GLSLShader();
+		std::string vertFilename = "shaders/post.vert";
+        std::string fragFilename = "shaders/post.frag";
+        GLSLShader* theShader = new GLSLShader();
+        this->multipassShader->LoadFromFile(GL_VERTEX_SHADER, vertFilename);
+        this->multipassShader->LoadFromFile(GL_FRAGMENT_SHADER, fragFilename);
+		this->multipassShader->CreateAndLinkProgram();
+		Vertex allscreenverts[4] = {
+			Vertex(-1.0f,-1.0f, 0.0f),Vertex(1.0f,-1.0f, 0.0f),
+			Vertex(-1.0f, 1.0f, 0.0f),Vertex(1.0f, 1.0f, 0.0f)
+		};
+		TexCoord allscreenuv[4] = {
+			TexCoord(0.0f,0.0f), TexCoord(1.0f,0.0f),
+			TexCoord(0.0f,1.0f), TexCoord(1.0f,1.0f)
+		};
+		glGenVertexArrays(1, &this->multipassVAO); // Generate a VAO
+        glBindVertexArray(this->multipassVAO); // Bind the VAO
+
+        glGenBuffers(2, &this->multipassBuffers[0]); // Generate a vertex buffer.
+        glBindBuffer(GL_ARRAY_BUFFER, this->multipassBuffers[0]); // Bind the vertex buffer.
+        glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * 4, allscreenverts, GL_STATIC_DRAW); // Stores the verts in the vertex buffer.
+        GLint posLocation = glGetAttribLocation(this->multipassShader->GetProgram(), "in_Position");
+		glVertexAttribPointer(posLocation, 3, GL_FLOAT, GL_FALSE, 0, 0);
+        glEnableVertexAttribArray(posLocation);
+		glBindBuffer(GL_ARRAY_BUFFER, this->multipassBuffers[1]); // Bind the UV buffer.
+        glBufferData(GL_ARRAY_BUFFER, sizeof(TexCoord) * 4, allscreenuv, GL_STATIC_DRAW); // Stores the verts in the vertex buffer.
+        GLint uvLocation = glGetAttribLocation(this->multipassShader->GetProgram(), "in_UV");
+		glVertexAttribPointer(uvLocation, 2, GL_FLOAT, GL_FALSE, 0, 0);
+        glEnableVertexAttribArray(uvLocation);
+		glBindVertexArray(0); // unbind when done
 		// Create main framebuffer (index 0)
 		//this->createRenderTarget(1024, 768, GL_RGBA8);
 
