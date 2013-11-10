@@ -11,7 +11,7 @@ public:
 
 	void ToggleFullscreen();
 
-	bool ToggleRiftFullscreen(const OVR::HMDInfo*);
+	bool ToggleRiftFullscreen(const OVR::HMDInfo&);
 
 	bool InitRift();
 

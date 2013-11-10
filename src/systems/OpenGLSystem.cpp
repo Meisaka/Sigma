@@ -463,13 +463,14 @@ namespace Sigma{
 			stereoRightVPw = ossx / 2;
 			stereoRightVPh = ossy;
 			// Generate projection matrix for each eye
-			glm::mat4 projbase = glm::perspective(sfov, aspect, 0.1f, 10000.0f);
-			this->stereoProjectionLeft = glm::translate(projbase, pofs, 0.0f, 0.0f);
-			this->stereoProjectionRight = glm::translate(projbase, -pofs, 0.0f, 0.0f);
+			glm::mat4 projbase = glm::perspective(glm::degrees(sfov), aspect, 0.1f, 10000.0f);
+			this->stereoProjectionLeft = glm::translate(pofs, 0.0f, 0.0f) * projbase;
+			this->stereoProjectionRight = glm::translate(-pofs, 0.0f, 0.0f) * projbase;
 
 			// translate view matrix X Coord by these
-			stereoViewLeft = riftinfo.InterpupillaryDistance * 0.5f;
-			stereoViewRight = riftinfo.InterpupillaryDistance * -0.5f;
+			stereoViewIPD = riftinfo.InterpupillaryDistance * 0.1f;
+			stereoViewLeft = stereoViewIPD * 0.5f;
+			stereoViewRight = stereoViewIPD * -0.5f;
 		}
 		renderMode = mode;
 		return true;
@@ -487,7 +488,7 @@ namespace Sigma{
 		glBindTexture(GL_TEXTURE_2D, newRT->texture_id);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 		//NULL means reserve texture memory, but texels are undefined

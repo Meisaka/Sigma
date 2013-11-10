@@ -44,7 +44,7 @@ public:
 	 *
 	 * \return   bool Returns false if no Rift is found.
 	 */
-	virtual bool ToggleRiftFullscreen(const OVR::HMDInfo*) = 0;
+	virtual bool ToggleRiftFullscreen(const OVR::HMDInfo&) = 0;
 
 	/**
 	 * \brief Initializes the Oculus lib.

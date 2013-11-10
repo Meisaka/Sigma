@@ -117,7 +117,7 @@ int main(int argCount, char **argValues) {
 	// Link the graphics view to the physics system's view mover
 	Sigma::BulletMover* mover = bphys.getViewMover();
 
-
+	const OVR::HMDInfo *RInfo;
 	// Create the controller
 	// Perhaps a little awkward currently, should create a generic
 	// controller class ancestor
@@ -135,7 +135,11 @@ int main(int argCount, char **argValues) {
 		theCamera->SetMover(mover);
 		if(riftpresent) {
 			theCamera->SetHMD(os->GetRiftHMD());
-			glsys.SetStereoMode(theCamera->GetHMDInfo());
+			RInfo = &theCamera->GetHMDInfo();
+			glsys.SetStereoMode(*RInfo);
+			glsys.SetFrameRate(80.0f);
+			os->ToggleRiftFullscreen(*RInfo);
+			glsys.SetViewportSize(os->GetWindowWidth(), os->GetWindowHeight());
 		}
 	} else if (glsys.GetViewMode() == "GLSixDOFView") {
 		Sigma::event::handler::GLSixDOFViewController cameraController(glsys.GetView(), mover);
@@ -169,6 +173,10 @@ int main(int argCount, char **argValues) {
 			}
 		}
 
+		if (os->KeyReleased('N', true)) {
+			os->ToggleRiftFullscreen(*RInfo);
+			glsys.SetViewportSize(os->GetWindowWidth(), os->GetWindowHeight());
+		}
 		if (os->KeyReleased('M', true)) {
 			os->ToggleFullscreen();
 			glsys.SetViewportSize(os->GetWindowWidth(), os->GetWindowHeight());

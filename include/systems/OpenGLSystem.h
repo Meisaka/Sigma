@@ -185,6 +185,7 @@ namespace Sigma{
         glm::mat4 stereoProjectionRight;
 		float stereoViewLeft; // displacements for view matrix
 		float stereoViewRight;
+		float stereoViewIPD;
 		GLsizei stereoFBTw; // frame buffer size (not the same as screen size, usually larger)
         GLsizei stereoFBTh;
 		GLint stereoLeftVPx; // viewport settings (left)
@@ -205,6 +206,11 @@ namespace Sigma{
 		glm::vec4 riftDistortionK;
 		glm::vec4 riftChromaK;
         
+		// post processing hack
+		GLuint multipassVAO;
+		GLuint multipassBuffers[2];
+		GLSLShader* multipassShader;
+
         double deltaAccumulator; // milliseconds since last render
         double framerate; // default is 60fps
 		

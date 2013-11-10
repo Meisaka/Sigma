@@ -20,11 +20,27 @@ win32::~win32() {
 }
 
 static BOOL CALLBACK win32MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor,LPARAM dwData) {
+	struct win32EnumData {
+		const OVR::HMDInfo *hmd;
+		HWND win;
+	} *searchvals;
+	std::string riftmon;
+	std::string winmon;
 	MONITORINFOEX monInfo;
 	monInfo.cbSize = sizeof(MONITORINFOEX);
 	GetMonitorInfo(hMonitor, &monInfo);
-	// Move the window and resize it to take up the whole monitor
-	//MoveWindow(this->hwnd, monInfo.rcMonitor.left, monInfo.rcMonitor.top, monInfo.rcMonitor.right - monInfo.rcMonitor.left, monInfo.rcMonitor.bottom - monInfo.rcMonitor.top, TRUE);
+	if(dwData) {
+		searchvals = (struct win32EnumData*)dwData;
+		if(searchvals->hmd) {
+			riftmon = searchvals->hmd->DisplayDeviceName;
+			winmon = monInfo.szDevice;
+			// Move the window and resize it to take up the whole monitor
+			if(riftmon.compare(0,winmon.length(),winmon) == 0) {
+				MoveWindow(searchvals->win, monInfo.rcMonitor.left, monInfo.rcMonitor.top, monInfo.rcMonitor.right - monInfo.rcMonitor.left, monInfo.rcMonitor.bottom - monInfo.rcMonitor.top, TRUE);
+				return FALSE;
+			}
+		}
+	}
 
 	return TRUE;
 }
@@ -43,10 +59,10 @@ OVR::HMDDevice * win32::GetRiftHMD() {
 	return this->ovrPrimaryHMD;
 }
 
-bool win32::ToggleRiftFullscreen(const OVR::HMDInfo *riftinfo) {
+bool win32::ToggleRiftFullscreen(const OVR::HMDInfo &riftinfo) {
 	struct {
-		OVR::HMDInfo *hmd;
-		win32 *win;
+		const OVR::HMDInfo *hmd;
+		HWND win;
 	} searchvals;
 
 	if (this->fullscreen) {
@@ -59,6 +75,8 @@ bool win32::ToggleRiftFullscreen(const OVR::HMDInfo *riftinfo) {
 
 		SetWindowLongPtr(this->hwnd, GWL_STYLE, WS_SYSMENU | WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE);
 
+		searchvals.hmd = &riftinfo;
+		searchvals.win = this->hwnd;
 		EnumDisplayMonitors(NULL, NULL, &win32MonitorEnumProc, (LPARAM)&searchvals);
 
 		this->fullscreen = true;
