@@ -26,6 +26,13 @@ namespace Sigma {
 		// Add the mesh group
 		this->AddMeshGroupIndex(0);
 
+		this->shader->Use();
+		this->shader->AddUniform("in_Texture");
+		this->shader->AddUniform("in_View");
+		this->shader->AddUniform("in_Proj");
+		this->shader->AddUniform("enable_projection");
+		this->shader->UnUse();
+
 		GLMesh::InitializeBuffers();
 	}
 
@@ -37,10 +44,13 @@ namespace Sigma {
 			glDisable(GL_DEPTH_TEST);
 			glDepthMask(GL_FALSE);
 
+			glUniformMatrix4fv((*this->shader)("in_View"), 1, GL_FALSE, view);
+			glUniformMatrix4fv((*this->shader)("in_Proj"), 1, GL_FALSE, proj);
+
 			glBindVertexArray(this->vao);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->GetBuffer(this->ElemBufIndex));
 
-			glUniform1i(glGetUniformLocation((*this->shader).GetProgram(), "in_Texture"), 0);
+			glUniform1i((*this->shader)("in_Texture"), 0);
 			glBindTexture(GL_TEXTURE_2D, this->texture->GetID());
 			glActiveTexture(GL_TEXTURE0);
 

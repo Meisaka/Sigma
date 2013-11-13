@@ -34,29 +34,41 @@ namespace Sigma {
 				}
 				glm::quat vieworient = glm::quat(riftorient.x, riftorient.y, riftorient.z, riftorient.w);
 				float trans;
+				glm::mat4 viewMatrix = glm::mat4(1.0f);
 				switch(V) {
 				case VIEW_LEFT:
-					trans = ipd * 0.5f;
+				case VIEW_FIXED_LEFT:
+					viewMatrix = glm::translate(ipd * 0.5f,0.0f,0.0f) * viewMatrix;
 					break;
 				case VIEW_RIGHT:
-					trans = ipd * -0.5f;
+				case VIEW_FIXED_RIGHT:
+					viewMatrix = glm::translate(ipd * -0.5f,0.0f,0.0f) * viewMatrix;
 					break;
 				default:
-					trans = 0.0f;
 					break;
 				}
-				glm::mat4 viewMatrix = glm::mat4(1.0f);
-				viewMatrix = glm::translate(trans,0.0f,0.0f) * viewMatrix;
-				//viewMatrix = glm::rotate(viewMatrix, this->Transform.GetPitch(), glm::vec3(1.0f, 0, 0));
-				viewMatrix = glm::rotate(viewMatrix, -90.0f, glm::vec3(0.0f, 1.0f, 0.0f));
-				viewMatrix = glm::rotate(viewMatrix, 180.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-				viewMatrix = viewMatrix * glm::mat4_cast(vieworient);
-				viewMatrix = glm::rotate(viewMatrix, 90.0f, glm::vec3(0.0f, 1.0f, 0.0f));
-				viewMatrix = glm::rotate(viewMatrix, 180.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-				viewMatrix = glm::rotate(viewMatrix, 180.0f, glm::vec3(0.0f, 0.0f, 1.0f));
-				viewMatrix = glm::rotate(viewMatrix, this->Transform.GetYaw(), glm::vec3(0, 1.0f, 0));
-				if(V != VIEW_INFINITE) {
+				switch(V) {
+				case VIEW_FIXED_RIGHT:
+				case VIEW_FIXED_LEFT:
+					break;
+				default:
+					//viewMatrix = glm::rotate(viewMatrix, this->Transform.GetPitch(), glm::vec3(1.0f, 0, 0));
+					viewMatrix = glm::rotate(viewMatrix, -90.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+					viewMatrix = glm::rotate(viewMatrix, 180.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+					viewMatrix = viewMatrix * glm::mat4_cast(vieworient);
+					viewMatrix = glm::rotate(viewMatrix, 90.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+					viewMatrix = glm::rotate(viewMatrix, 180.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+					viewMatrix = glm::rotate(viewMatrix, 180.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+					viewMatrix = glm::rotate(viewMatrix, this->Transform.GetYaw(), glm::vec3(0, 1.0f, 0));
+				}
+				switch(V) {
+				case VIEW_INFINITE:
+				case VIEW_FIXED_RIGHT:
+				case VIEW_FIXED_LEFT:
+					break;
+				default:
 					viewMatrix = glm::translate(viewMatrix, -1.0f * this->Transform.GetPosition());
+					break;
 				}
 				return viewMatrix;
 			}

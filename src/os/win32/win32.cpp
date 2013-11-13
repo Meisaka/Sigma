@@ -148,7 +148,7 @@ void* win32::CreateGraphicsWindow(const unsigned int width, const unsigned int h
 	POINT midwindow = {512,384};
 	ClientToScreen(this->hwnd, &midwindow);
 	SetCursorPos(midwindow.x, midwindow.y);
-	ShowCursor(false);
+	//ShowCursor(false);
 
 	StartOpenGL();
 

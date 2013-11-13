@@ -52,6 +52,8 @@ namespace Sigma{
 		VIEW_LEFT,
 		VIEW_RIGHT,
 		VIEW_INFINITE, // no position translation
+		VIEW_FIXED_LEFT, // no translation other then IPD
+		VIEW_FIXED_RIGHT,
 	};
 
     struct IGLView : public Sigma::IComponent {

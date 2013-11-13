@@ -1,4 +1,4 @@
-// Vertex Shader – file "minimal.vert"
+// Vertex Shader -file "minimal.vert"
  
 #version 140
  

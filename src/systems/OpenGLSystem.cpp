@@ -609,13 +609,19 @@ namespace Sigma{
 
 			//glm::vec3 viewPosition;
 			glm::mat4 viewMatrix;
+			glm::mat4 viewFixMatrix;
 			glm::mat4 viewInfMatrix;
 			glm::mat4 viewProj;
 			glm::mat4 ProjMatrix;
 			
 			int looprender;
 			int renderstage;
-			if(renderMode == GLS_RIFT) { looprender = 1; } else { looprender = 0; }
+			bool renderstereo = false;
+			if(renderMode == GLS_RIFT) {
+				looprender = 1;
+				renderstereo = true;
+			}
+			else { looprender = 0; }
 
             glClearColor(0.0f,0.0f,0.0f,0.0f);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
@@ -636,9 +642,11 @@ namespace Sigma{
 				if(renderstage == 0) {
 					if (this->views.size() > 0) {
 						viewMatrix = this->views[this->views.size() - 1]->GetViewMatrix(VIEW_LEFT,stereoViewIPD);
+						viewFixMatrix = this->views[this->views.size() - 1]->GetViewMatrix(VIEW_FIXED_LEFT,stereoViewIPD*0.01f);
 						//viewPosition = this->views[this->views.size() - 1]->Transform.GetPosition();
 					}
 					//viewMatrix = glm::translate(viewMatrix,-stereoViewLeft,0.0f,0.0f);
+					viewFixMatrix = glm::translate(viewFixMatrix,0.0f,0.0f,-2.2f);
 					viewProj = viewMatrix;
 					ProjMatrix = this->stereoProjectionLeft;
 					viewProj = ProjMatrix * viewProj;
@@ -646,9 +654,11 @@ namespace Sigma{
 				else {
 					if (this->views.size() > 0) {
 						viewMatrix = this->views[this->views.size() - 1]->GetViewMatrix(VIEW_RIGHT,stereoViewIPD);
+						viewFixMatrix = this->views[this->views.size() - 1]->GetViewMatrix(VIEW_FIXED_RIGHT,stereoViewIPD*0.01f);
 						//viewPosition = this->views[this->views.size() - 1]->Transform.GetPosition();
 					}
 					//viewMatrix = glm::translate(viewMatrix,-stereoViewRight,0.0f,0.0f);
+					viewFixMatrix = glm::translate(viewFixMatrix,0.0f,0.0f,-2.2f);
 					viewProj = viewMatrix;
 					ProjMatrix = this->stereoProjectionRight;
 					viewProj = ProjMatrix * viewProj;
@@ -770,15 +780,17 @@ namespace Sigma{
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 			for (auto citr = this->screensSpaceComp.begin(); citr != this->screensSpaceComp.end(); ++citr) {
 					citr->get()->GetShader()->Use();
-
+					/* ** screen quads don't have this stuff **
 					// Set view position
-					glUniform3f(glGetUniformBlockIndex(citr->get()->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
+					//glUniform3f(glGetUniformBlockIndex(citr->get()->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
 
 					// For now, turn on ambient intensity and turn off lighting
 					glUniform1f(glGetUniformLocation(citr->get()->GetShader()->GetProgram(), "ambLightIntensity"), 0.05f);
 					glUniform1f(glGetUniformLocation(citr->get()->GetShader()->GetProgram(), "diffuseLightIntensity"), 0.0f);
 					glUniform1f(glGetUniformLocation(citr->get()->GetShader()->GetProgram(), "specularLightIntensity"), 0.0f);
-					citr->get()->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
+					*/
+					glUniform1i((*citr->get()->GetShader())("enable_projection"), (renderstereo ? 1 : 0));
+					citr->get()->Render(&viewFixMatrix[0][0], &ProjMatrix[0][0]);
 			}
 			// Remove blending
 			glDisable(GL_BLEND);
