@@ -16,6 +16,7 @@
 #include "systems/IGLView.h"
 #include <vector>
 #include <OVR.h>
+#include "resources/GLTexture.h"
 
 struct IGLView;
 
@@ -169,6 +170,8 @@ namespace Sigma{
 		 * \return    const std::string& The current view mode.
 		 */
 		const std::string& GetViewMode() { return this->viewMode; }
+
+		static std::map<std::string, Sigma::resource::GLTexture> textures;
     private:
         unsigned int windowWidth; // Store the width of our window
         unsigned int windowHeight; // Store the height of our window
@@ -219,6 +222,8 @@ namespace Sigma{
 
 		// Render targets to draw to
 		std::vector<std::unique_ptr<RenderTarget>> renderTargets;
+
+		std::vector<std::unique_ptr<IGLComponent>> screensSpaceComp; // A vector that holds only screen space components. These are rendered separately.
     }; // class OpenGLSystem
 } // namespace Sigma
 #endif // OPENGLSYSTEM_H

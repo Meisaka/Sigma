@@ -55,4 +55,5 @@ private:
 
 	bool fullscreen;
 	RECT windowedSize;
+	static bool mouselook;
 };

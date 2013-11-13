@@ -93,6 +93,7 @@ if(WIN32 AND NOT MINGW) # Windows
 	set(OVR_LIBRARY "libovr" CACHE STRING "Oculus VR Lib to use")
 	set(EXTRA_LIBRARIES winmm)
 	SET(SOIL_LIBRARY SOIL)
+	SET(AWSOMEIUM_LIBRARY Awesomium)
 
 	set(IOPSYS "OS_Win32" CACHE STRING "Select the Op Sys you want to use")
 endif(WIN32 AND NOT MINGW)
@@ -143,7 +144,7 @@ add_executable(Sigma ${Sigma_SRC} ${Sigma_SRC_COMPONENT_H} ${Sigma_SRC_COMPONENT
 add_definitions(-D${IOPSYS})
 
 # Link the executable to the Hello library.
-target_link_libraries (Sigma ${Sigma_LIB} ${OPENGL_LIBRARIES} ${OVR_LIBRARY} ${EXTRA_LIBRARIES} ${GLEW_LIBRARY} ${SOIL_LIBRARY} ${BULLET_LINEARMATH_LIBRARIES} ${BULLET_COLLISION_LIBRARIES} ${BULLET_DYNAMICS_LIBRARIES})
+target_link_libraries (Sigma ${Sigma_LIB} ${OPENGL_LIBRARIES} ${GLEW_LIBRARY} ${SOIL_LIBRARY} ${BULLET_LINEARMATH_LIBRARIES} ${BULLET_COLLISION_LIBRARIES} ${BULLET_DYNAMICS_LIBRARIES} ${OVR_LIBRARY} ${EXTRA_LIBRARIES} ${AWSOMEIUM_LIBRARY})
 
 # build the Tests subproject
 #ADD_SUBDIRECTORY("${CMAKE_SOURCE_DIR}/tests")

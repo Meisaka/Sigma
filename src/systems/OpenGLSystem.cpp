@@ -27,7 +27,8 @@ namespace Sigma{
 		glBindFramebuffer(GL_FRAMEBUFFER, this->fbo_id);
 	}
 
-    OpenGLSystem::OpenGLSystem() : windowWidth(800), windowHeight(600), deltaAccumulator(0.0),
+	std::map<std::string, Sigma::resource::GLTexture> OpenGLSystem::textures;
+    OpenGLSystem::OpenGLSystem() : windowWidth(1024), windowHeight(768), deltaAccumulator(0.0),
 		framerate(60.0f), viewMode(""), renderMode(GLS_NONE) {}
 
 	std::map<std::string, Sigma::IFactory::FactoryFunction>
@@ -132,7 +133,20 @@ namespace Sigma{
 				textureFilename = p->Get<std::string>();
 			}
 		}
-		spr->LoadTexture(textureFilename);
+
+		// Check if the texture is loaded and load it if not.
+		if (textures.find(textureFilename) == textures.end()) {
+			Sigma::resource::GLTexture texture;
+			texture.LoadDataFromFile(textureFilename);
+			if (texture.GetID() != 0) {
+				Sigma::OpenGLSystem::textures[textureFilename] = texture;
+			}
+		}
+
+		// It should be loaded, but in case an error occurred double check for it.
+		if (textures.find(textureFilename) != textures.end()) {
+			spr->SetTexture(&Sigma::OpenGLSystem::textures[textureFilename]);
+		}
 		spr->LoadShader();
 		spr->Transform()->Scale(glm::vec3(scale));
 		spr->Transform()->Translate(x,y,z);
@@ -174,7 +188,8 @@ namespace Sigma{
 				}
 				else if (p->GetName() == "shader"){
 					shader_name = p->Get<std::string>();
-				} else if (p->GetName() == "lightEnabled") {
+				}
+				else if (p->GetName() == "lightEnabled") {
 					sphere->SetLightingEnabled(p->Get<bool>());
 				}
 			}
@@ -325,7 +340,8 @@ namespace Sigma{
 			}
 			else if (p->GetName() == "cullface") {
 				cull_face = p->Get<std::string>();
-			} else if (p->GetName() == "lightEnabled") {
+			}
+			else if (p->GetName() == "lightEnabled") {
 				mesh->SetLightingEnabled(p->Get<bool>());
 			}
 		}
@@ -353,25 +369,56 @@ namespace Sigma{
 		float w = 0.0f;
 		float h = 0.0f;
 		int componentID = 0;
+		std::string textrueName;
+		bool textureInMemory = false;
 
 		for (auto propitr = properties.begin(); propitr != properties.end(); ++propitr) {
 			const Property*  p = &(*propitr);
 			if (p->GetName() == "left") {
 				x = p->Get<float>();
-			} else if (p->GetName() == "top") {
+			}
+			else if (p->GetName() == "top") {
 				y = p->Get<float>();
-			} else if (p->GetName() == "right") {
+			}
+			else if (p->GetName() == "width") {
 				w = p->Get<float>();
-			} else if (p->GetName() == "bottom") {
+			}
+			else if (p->GetName() == "height") {
 				h = p->Get<float>();
 			}
+			else if (p->GetName() == "textureName") {
+				textrueName = p->Get<std::string>();
+				textureInMemory = true;
+			}
+			else if (p->GetName() == "textureFileName") {
+				textrueName = p->Get<std::string>();
+			}
+		}
+
+		// Check if the texture is loaded and load it if not.
+		if (textures.find(textrueName) == textures.end()) {
+			Sigma::resource::GLTexture texture;
+			if (textureInMemory) { // We are using an in memory texture. It will be populated somewhere else
+				Sigma::OpenGLSystem::textures[textrueName] = texture;
+			}
+			else { // The texture in on disk so load it.
+				texture.LoadDataFromFile(textrueName);
+				if (texture.GetID() != 0) {
+					Sigma::OpenGLSystem::textures[textrueName] = texture;
+				}
+			}
+		}
+
+		// It should be loaded, but in case an error occurred double check for it.
+		if (textures.find(textrueName) != textures.end()) {
+			quad->SetTexture(&Sigma::OpenGLSystem::textures[textrueName]);
 		}
 
 		quad->SetPosition(x, y);
 		quad->SetSize(w, h);
 		quad->LoadShader("shaders/quad");
 		quad->InitializeBuffers();
-		this->addComponent(entityID,quad);
+		this->screensSpaceComp.push_back(std::unique_ptr<IGLComponent>(quad));
 		return quad;
 	}
 
@@ -382,23 +429,32 @@ namespace Sigma{
 			const Property*  p = &*propitr;
 			if (p->GetName() == "x") {
 				light->position.x = p->Get<float>();
-			} else if (p->GetName() == "y") {
+			}
+			else if (p->GetName() == "y") {
 				light->position.y = p->Get<float>();
-			} else if (p->GetName() == "z") {
+			}
+			else if (p->GetName() == "z") {
 				light->position.z = p->Get<float>();
-			} else if (p->GetName() == "intensity") {
+			}
+			else if (p->GetName() == "intensity") {
 				light->intensity = p->Get<float>();
-			} else if (p->GetName() == "cr") {
+			}
+			else if (p->GetName() == "cr") {
 				light->color.r = p->Get<float>();
-			} else if (p->GetName() == "cg") {
+			}
+			else if (p->GetName() == "cg") {
 				light->color.g = p->Get<float>();
-			} else if (p->GetName() == "cb") {
+			}
+			else if (p->GetName() == "cb") {
 				light->color.b = p->Get<float>();
-			} else if (p->GetName() == "ca") {
+			}
+			else if (p->GetName() == "ca") {
 				light->color.a = p->Get<float>();
-			} else if (p->GetName() == "radius") {
+			}
+			else if (p->GetName() == "radius") {
 				light->radius = p->Get<float>();
-			} else if (p->GetName() == "falloff") {
+			}
+			else if (p->GetName() == "falloff") {
 				light->falloff = p->Get<float>();
 			}
 		}
@@ -708,7 +764,27 @@ namespace Sigma{
 					}
 				}
 			}
+
+			// Enable transparent rendering
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			for (auto citr = this->screensSpaceComp.begin(); citr != this->screensSpaceComp.end(); ++citr) {
+					citr->get()->GetShader()->Use();
+
+					// Set view position
+					glUniform3f(glGetUniformBlockIndex(citr->get()->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
+
+					// For now, turn on ambient intensity and turn off lighting
+					glUniform1f(glGetUniformLocation(citr->get()->GetShader()->GetProgram(), "ambLightIntensity"), 0.05f);
+					glUniform1f(glGetUniformLocation(citr->get()->GetShader()->GetProgram(), "diffuseLightIntensity"), 0.0f);
+					glUniform1f(glGetUniformLocation(citr->get()->GetShader()->GetProgram(), "specularLightIntensity"), 0.0f);
+					citr->get()->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
+			}
+			// Remove blending
+			glDisable(GL_BLEND);
+
 			} // for renderstage ... avoid diffs
+
 			// Unbind frame buffer
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 

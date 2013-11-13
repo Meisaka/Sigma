@@ -4,11 +4,13 @@
 #include "systems/BulletPhysics.h"
 #include "systems/FactorySystem.h"
 #include "controllers/GLSixDOFViewController.h"
+#include "controllers/GUIController.h"
 #include "controllers/FPSCamera.h"
 #include "controllers/RiftCamera.h"
 #include "components/BulletMover.h"
 #include "components/GLScreenQuad.h"
 #include "SCParser.h"
+#include "systems/WebGUISystem.h"
 
 #if defined OS_Win32
 #include "os/win32/win32.h"
@@ -19,10 +21,12 @@
 int main(int argCount, char **argValues) {
 	Sigma::OpenGLSystem glsys;
 	Sigma::BulletPhysics bphys;
+	Sigma::WebGUISystem webguisys;
 
 	Sigma::FactorySystem& factory = Sigma::FactorySystem::getInstance();
 	factory.register_Factory(glsys);
 	factory.register_Factory(bphys);
+	factory.register_Factory(webguisys);
 
 	bool riftpresent = false;
 
@@ -60,6 +64,9 @@ int main(int argCount, char **argValues) {
 
 	bphys.Start();
 
+	webguisys.Start();
+	webguisys.SetWindowSize(os->GetWindowWidth(), os->GetWindowHeight());
+
 	// Parse the scene file to retrieve entities
 	Sigma::parser::SCParser parser;
 
@@ -74,7 +81,6 @@ int main(int argCount, char **argValues) {
 	for (unsigned int i = 0; i < parser.EntityCount(); ++i) {
 		Sigma::parser::Entity* e = parser.GetEntity(i);
 		for (auto itr = e->components.begin(); itr != e->components.end(); ++itr) {
-
 			// Currently, physicsmover components must come after gl* components
 			if((*itr).type == "PhysicsMover") {
 				GLTransform *transform = glsys.GetTransformFor(e->id);
@@ -87,9 +93,7 @@ int main(int argCount, char **argValues) {
 				}
 			}
 
-            factory.create(
-                        itr->type,e->id,
-                        const_cast<std::vector<Property>&>(itr->properties));
+            factory.create(itr->type,e->id, const_cast<std::vector<Property>&>(itr->properties));
 		}
 	}
 
@@ -118,6 +122,7 @@ int main(int argCount, char **argValues) {
 	Sigma::BulletMover* mover = bphys.getViewMover();
 
 	const OVR::HMDInfo *RInfo;
+
 	// Create the controller
 	// Perhaps a little awkward currently, should create a generic
 	// controller class ancestor
@@ -146,6 +151,21 @@ int main(int argCount, char **argValues) {
 		IOpSys::KeyboardEventSystem.Register(&cameraController);
 	}
 
+	Sigma::event::handler::GUIController guicon;
+	guicon.SetGUI(webguisys.getComponent(100, Sigma::WebGUIView::getStaticComponentTypeName()));
+	IOpSys::KeyboardEventSystem.Register(&guicon);
+	IOpSys::MouseEventSystem.Register(&guicon);
+
+	Sigma::event::handler::GUIController guicon2;
+	guicon2.SetGUI(webguisys.getComponent(101, Sigma::WebGUIView::getStaticComponentTypeName()));
+	IOpSys::KeyboardEventSystem.Register(&guicon2);
+	IOpSys::MouseEventSystem.Register(&guicon2);
+
+	Sigma::event::handler::GUIController guicon3;
+	guicon3.SetGUI(webguisys.getComponent(102, Sigma::WebGUIView::getStaticComponentTypeName()));
+	IOpSys::KeyboardEventSystem.Register(&guicon3);
+	IOpSys::MouseEventSystem.Register(&guicon3);
+
 	// Setup the timer
 	os->SetupTimer();
 
@@ -154,8 +174,6 @@ int main(int argCount, char **argValues) {
 	bool isWireframe=false;
 
 	// Load a font
-	os->LoadFont("Akashi.ttf", 8);
-
 	while (os->MessageLoop()) {
 
 		// Get time in ms, store it in seconds too
@@ -189,17 +207,7 @@ int main(int argCount, char **argValues) {
 
 		// Pass in delta time in seconds
 		bphys.Update(deltaSec);
-
-		// Update stats display
-		Sigma::GLScreenQuad *statsDisplay = dynamic_cast<Sigma::GLScreenQuad*>(glsys.getComponent(31, "GLScreenQuad"));
-
-		if(statsDisplay) {
-			char message[100];
-			sprintf(message, "MS per frame: %.3f", delta);
-			os->RenderText(message, 2.0f, 2.0f, statsDisplay->GetTexture());
-			sprintf(message, "FPS: %.1f", 1000.0f/delta);
-			os->RenderText(message, 2.0f, 10.0f, statsDisplay->GetTexture());
-		}
+		webguisys.Update(deltaSec);
 
 		// Update the renderer and present
 		if (glsys.Update(delta)) {
