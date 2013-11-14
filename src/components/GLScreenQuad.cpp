@@ -28,9 +28,14 @@ namespace Sigma {
 
 		this->shader->Use();
 		this->shader->AddUniform("in_Texture");
-		this->shader->AddUniform("in_View");
-		this->shader->AddUniform("in_Proj");
+		glGenSamplers(1, &this->samplerid);
+		glSamplerParameteri(this->samplerid, GL_TEXTURE_WRAP_S, GL_CLAMP);
+		glSamplerParameteri(this->samplerid, GL_TEXTURE_WRAP_T, GL_CLAMP);
+		glSamplerParameteri(this->samplerid, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glSamplerParameteri(this->samplerid, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		// Rift stuff
 		this->shader->AddUniform("enable_projection");
+
 		this->shader->UnUse();
 
 		GLMesh::InitializeBuffers();
@@ -53,6 +58,7 @@ namespace Sigma {
 			glUniform1i((*this->shader)("in_Texture"), 0);
 			glBindTexture(GL_TEXTURE_2D, this->texture->GetID());
 			glActiveTexture(GL_TEXTURE0);
+			glBindSampler(0, this->samplerid);
 
 			for (int i = 0, cur = this->MeshGroup_ElementCount(0), prev = 0; cur != 0; prev = cur, cur = this->MeshGroup_ElementCount(++i)) {
 				glDrawElements(this->DrawMode(), cur, GL_UNSIGNED_INT, (void*)prev);
@@ -62,7 +68,7 @@ namespace Sigma {
 			glBindVertexArray(0);
 
 			// Clear the texture for next frame
-
+			glBindSampler(0, 0);
 			glBindTexture(GL_TEXTURE_2D, 0);
 
 			glEnable(GL_DEPTH_TEST);

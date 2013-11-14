@@ -148,7 +148,7 @@ void* win32::CreateGraphicsWindow(const unsigned int width, const unsigned int h
 	POINT midwindow = {512,384};
 	ClientToScreen(this->hwnd, &midwindow);
 	SetCursorPos(midwindow.x, midwindow.y);
-	//ShowCursor(false);
+	ShowCursor(false);
 
 	StartOpenGL();
 
@@ -215,12 +215,14 @@ LRESULT CALLBACK win32::WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
 		break;
 	case WM_RBUTTONDOWN:
 		ShowCursor(false);
+		MouseEventSystem.MouseVisible(false);
 		mouselook = true;
 		ClientToScreen(hwnd, &midwindow);
 		SetCursorPos(midwindow.x, midwindow.y);
 		break;
 	case WM_RBUTTONUP:
 		ShowCursor(true);
+		MouseEventSystem.MouseVisible(true);
 		mouselook = false;
 		break;
 	case WM_DESTROY:
@@ -233,9 +235,10 @@ LRESULT CALLBACK win32::WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
 
 bool win32::MessageLoop() {
 	MSG msg;
-	
+	int limit;
+
 	ZeroMemory(keyUp, sizeof(keyUp));
-	if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) { // If we have a message to process, process it
+	for (limit = 0; limit < 50 && PeekMessage(&msg, NULL, 0, 0, PM_REMOVE); limit++) { // If we have a message to process, process it
 		if (msg.message == WM_QUIT) {
 			return false;
 		}

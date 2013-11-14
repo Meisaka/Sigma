@@ -33,7 +33,6 @@ namespace Sigma {
 					riftorient = this->ovrSF.GetOrientation();
 				}
 				glm::quat vieworient = glm::quat(riftorient.x, riftorient.y, riftorient.z, riftorient.w);
-				float trans;
 				glm::mat4 viewMatrix = glm::mat4(1.0f);
 				switch(V) {
 				case VIEW_LEFT:

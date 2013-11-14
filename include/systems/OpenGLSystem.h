@@ -92,6 +92,7 @@ namespace Sigma{
 
 		IComponent* createPointLight(const unsigned int entityID, const std::vector<Property> &properties);
 		IComponent* createScreenQuad(const unsigned int entityID, const std::vector<Property> &properties);
+		IComponent* createScreenCursor(const unsigned int entityID, const std::vector<Property> &properties);
 
 		// TODO: Move these methods to the components themselves.
         IComponent* createGLSprite(const unsigned int entityID, const std::vector<Property> &properties) ;
@@ -172,6 +173,15 @@ namespace Sigma{
 		const std::string& GetViewMode() { return this->viewMode; }
 
 		static std::map<std::string, Sigma::resource::GLTexture> textures;
+
+		IGLComponent* getScreenComponent(std::size_t EntityID, IComponent::ComponentID ID) {
+			for (auto citr = this->screensSpaceComp.begin(); citr != this->screensSpaceComp.end(); ++citr) {
+				if((*citr)->GetEntityID() == EntityID && (*citr)->getComponentTypeName() == ID) {
+					return &*(*citr);
+				}
+			}
+            return NULL;
+        }
     private:
         unsigned int windowWidth; // Store the width of our window
         unsigned int windowHeight; // Store the height of our window

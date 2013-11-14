@@ -8,6 +8,7 @@
 #include "components/GLCubeSphere.h"
 #include "components/GLMesh.h"
 #include "components/GLScreenQuad.h"
+#include "components/GLScreenCursor.h"
 #include "components/PointLight.h"
 
 #include "GL/glew.h"
@@ -45,6 +46,7 @@ namespace Sigma{
 		retval["GLSixDOFView"] = std::bind(&OpenGLSystem::createGLView,this,_1,_2, "GLSixDOFView");
 		retval["PointLight"] = std::bind(&OpenGLSystem::createPointLight,this,_1,_2);
 		retval["GLScreenQuad"] = std::bind(&OpenGLSystem::createScreenQuad,this,_1,_2);
+		retval["GLScreenCursor"] = std::bind(&OpenGLSystem::createScreenCursor,this,_1,_2);
 
         return retval;
     }
@@ -420,6 +422,75 @@ namespace Sigma{
 		quad->InitializeBuffers();
 		this->screensSpaceComp.push_back(std::unique_ptr<IGLComponent>(quad));
 		return quad;
+	}
+
+	IComponent* OpenGLSystem::createScreenCursor(const unsigned int entityID, const std::vector<Property> &properties) {
+		Sigma::event::handler::GLScreenCursor* cursor = new Sigma::event::handler::GLScreenCursor(entityID);
+
+		float x = 0.0f;
+		float y = 0.0f;
+		float w = 0.0f;
+		float h = 0.0f;
+		float hotspotx = 0.0f;
+		float hotspoty = 0.0f;
+		int componentID = 0;
+		std::string textrueName;
+		bool textureInMemory = false;
+
+		for (auto propitr = properties.begin(); propitr != properties.end(); ++propitr) {
+			const Property*  p = &(*propitr);
+			if (p->GetName() == "left") {
+				x = p->Get<float>();
+			}
+			else if (p->GetName() == "top") {
+				y = p->Get<float>();
+			}
+			else if (p->GetName() == "width") {
+				w = p->Get<float>();
+			}
+			else if (p->GetName() == "height") {
+				h = p->Get<float>();
+			}
+			else if (p->GetName() == "hotspotx") {
+				hotspotx = p->Get<float>();
+			}
+			else if (p->GetName() == "hotspoty") {
+				hotspoty = p->Get<float>();
+			}
+			else if (p->GetName() == "textureName") {
+				textrueName = p->Get<std::string>();
+				textureInMemory = true;
+			}
+			else if (p->GetName() == "textureFileName") {
+				textrueName = p->Get<std::string>();
+			}
+		}
+
+		// Check if the texture is loaded and load it if not.
+		if (textures.find(textrueName) == textures.end()) {
+			Sigma::resource::GLTexture texture;
+			if (textureInMemory) { // We are using an in memory texture. It will be populated somewhere else
+				Sigma::OpenGLSystem::textures[textrueName] = texture;
+			}
+			else { // The texture in on disk so load it.
+				texture.LoadDataFromFile(textrueName);
+				if (texture.GetID() != 0) {
+					Sigma::OpenGLSystem::textures[textrueName] = texture;
+				}
+			}
+		}
+
+		// It should be loaded, but in case an error occurred double check for it.
+		if (textures.find(textrueName) != textures.end()) {
+			cursor->SetTexture(&Sigma::OpenGLSystem::textures[textrueName]);
+		}
+		cursor->SetHotspot(hotspotx, hotspoty);
+		cursor->SetPosition(x, y);
+		cursor->SetSize(w, h);
+		cursor->LoadShader("shaders/cursor");
+		cursor->InitializeBuffers();
+		this->screensSpaceComp.push_back(std::unique_ptr<IGLComponent>(cursor));
+		return cursor;
 	}
 
 	IComponent* OpenGLSystem::createPointLight(const unsigned int entityID, const std::vector<Property> &properties) {

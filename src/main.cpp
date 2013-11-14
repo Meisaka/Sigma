@@ -9,6 +9,7 @@
 #include "controllers/RiftCamera.h"
 #include "components/BulletMover.h"
 #include "components/GLScreenQuad.h"
+#include "components/GLScreenCursor.h"
 #include "SCParser.h"
 #include "systems/WebGUISystem.h"
 
@@ -165,6 +166,12 @@ int main(int argCount, char **argValues) {
 	guicon3.SetGUI(webguisys.getComponent(102, Sigma::WebGUIView::getStaticComponentTypeName()));
 	IOpSys::KeyboardEventSystem.Register(&guicon3);
 	IOpSys::MouseEventSystem.Register(&guicon3);
+
+	Sigma::event::handler::GLScreenCursor *guicur;
+	guicur = static_cast<Sigma::event::handler::GLScreenCursor*>(
+		glsys.getScreenComponent(110, Sigma::event::handler::GLScreenCursor::getStaticComponentTypeName())
+		);
+	IOpSys::MouseEventSystem.Register(guicur);
 
 	// Setup the timer
 	os->SetupTimer();

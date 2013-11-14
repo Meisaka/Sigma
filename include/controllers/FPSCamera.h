@@ -39,6 +39,7 @@ namespace Sigma {
 				// Not used but required to implement.
 				virtual void MouseDown(Sigma::event::BUTTON btn, float x, float y) {}
 				virtual void MouseUp(Sigma::event::BUTTON btn, float x, float y) {}
+				virtual void MouseVisible(bool visible) {}
 
 				/**
 				 * \brief Updates and returns the view matrix.

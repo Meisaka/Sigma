@@ -42,6 +42,7 @@ public:
 
 protected:
 	resource::GLTexture* texture;
+	GLuint samplerid;
 	float x, y, w, h;
 	unsigned int texture_size;
 };

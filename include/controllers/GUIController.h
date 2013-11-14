@@ -36,10 +36,11 @@ namespace Sigma {
 				 * \param[in/out] float dy
 				 */
 				virtual void MouseMove(float x, float y, float dx, float dy);
-
-				// Not used but required to implement.
 				virtual void MouseDown(Sigma::event::BUTTON btn, float x, float y);
 				virtual void MouseUp(Sigma::event::BUTTON btn, float x, float y);
+
+				// Not used but required to implement.
+				virtual void MouseVisible(bool visible) {}
 			private:
 				WebGUIView* gui;
 				bool hasFocus;

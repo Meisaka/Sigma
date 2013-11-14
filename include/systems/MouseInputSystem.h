@@ -14,6 +14,7 @@ namespace Sigma{
         struct IMouseEventHandler{
             float mouse_x, mouse_y; // current pixel locations
             BUTTON_STATE buttons[3]; // left, middle, right
+			virtual void MouseVisible(bool visible) = 0; // called if cursor/virtual cursor chages visiblity.
             virtual void MouseMove(float x, float y, float dx, float dy) = 0; // given displacement since last call
 			virtual void MouseDown(BUTTON btn, float x, float y) = 0; // called on button press.
             virtual void MouseUp(BUTTON btn, float x, float y) = 0;
@@ -31,6 +32,7 @@ namespace Sigma{
                  * \param handler, extending IMouseHandler, to receive mouse events
                  */
                 void Register(IMouseEventHandler *handler){
+					if(!handler) { return; }
                     this->eventHandlers.push_back(handler);
                 }
 
@@ -54,6 +56,12 @@ namespace Sigma{
 				void MouseUp(BUTTON btn, float x, float y) {
 					for (auto itr = this->eventHandlers.begin(); itr != this->eventHandlers.end(); ++itr) {
 						(*itr)->MouseUp(btn, x, y);
+					}
+				}
+
+				void MouseVisible(bool visible) {
+					for (auto itr = this->eventHandlers.begin(); itr != this->eventHandlers.end(); ++itr) {
+						(*itr)->MouseVisible(visible);
 					}
 				}
             private:
