@@ -622,24 +622,37 @@ namespace Sigma{
 
 		glGenTextures(1, &newRT->texture_id);
 		glBindTexture(GL_TEXTURE_2D, newRT->texture_id);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glGenerateMipmap(GL_TEXTURE_2D);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 		//NULL means reserve texture memory, but texels are undefined
 		glTexImage2D(GL_TEXTURE_2D, 0, (GLint)format, (GLsizei)w, (GLsizei)h, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
 
 		glGenFramebuffers(1, &newRT->fbo_id);
-		glBindFramebuffer(GL_FRAMEBUFFER, newRT->fbo_id);
-		
+		glGenFramebuffers(1, &newRT->rsfbo_id);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, newRT->rsfbo_id);
 		//Attach 2D texture to this FBO
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, newRT->texture_id, 0);
 		
+		glBindFramebuffer(GL_FRAMEBUFFER, newRT->fbo_id);
 		glGenRenderbuffers(1, &newRT->depth_id);
-		glBindRenderbuffer(GL_RENDERBUFFER, newRT->depth_id);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, w, h);
+		glGenRenderbuffers(1, &newRT->color_id);
+
+		// Create color buffer
+		glBindRenderbuffer(GL_RENDERBUFFER, newRT->color_id);
+		//glRenderbufferStorage(GL_RENDERBUFFER, format, w, h);
+		glRenderbufferStorageMultisample(GL_RENDERBUFFER, 16, format, w, h);
+		//Attach depth buffer to FBO
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, newRT->color_id);
 		
+		// Create depth buffer
+		glBindRenderbuffer(GL_RENDERBUFFER, newRT->depth_id);
+		//glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, w, h);
+		glRenderbufferStorageMultisample(GL_RENDERBUFFER, 16, GL_DEPTH_COMPONENT24, w, h);
 		//Attach depth buffer to FBO
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, newRT->depth_id);
 		
@@ -700,6 +713,7 @@ namespace Sigma{
             // Set up the scene to a "clean" state.
 
 			if(renderMode == GLS_RIFT && this->renderTargets.size() > 0) {
+				glEnable(GL_MULTISAMPLE);
 				if(renderstage == 0) { // Set the viewport size to half fill the framebuffer
 				glViewport(stereoLeftVPx, stereoLeftVPy, stereoLeftVPw, stereoLeftVPh);
 				}
@@ -873,6 +887,10 @@ namespace Sigma{
 
 			// Stereo post processing (for Rift)
 			if(renderMode == GLS_RIFT && this->renderTargets.size() > 0) {
+				glBindFramebuffer( GL_READ_FRAMEBUFFER, this->renderTargets[0]->fbo_id);
+				glBindFramebuffer( GL_DRAW_FRAMEBUFFER, this->renderTargets[0]->rsfbo_id);
+				glBlitFramebuffer( 0, 0, this->stereoFBTw, this->stereoFBTh, 0, 0, this->stereoFBTw, this->stereoFBTh, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
 				glViewport(0, 0, windowWidth, windowHeight);
 				glDepthFunc(GL_ALWAYS);
 				glDisable(GL_CULL_FACE);
@@ -881,6 +899,7 @@ namespace Sigma{
 				glUniform1i((*multipassShader)("in_Texture"), 0);
 				glActiveTexture(GL_TEXTURE0);
 				glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_id);
+				glGenerateMipmap(GL_TEXTURE_2D);
 				GLuint pgm = this->multipassShader->GetProgram();
 				glUniform2f(glGetUniformLocation(pgm, "ScaleIn"), riftScaleIn.x, riftScaleIn.y);
 				glUniform2f(glGetUniformLocation(pgm, "ScaleOut"), riftScaleOut.x, riftScaleOut.y);
@@ -896,6 +915,7 @@ namespace Sigma{
 				glEnable(GL_CULL_FACE);
 				glBindTexture(GL_TEXTURE_2D, 0);
 				glDepthFunc(GL_LESS);
+				glDisable(GL_MULTISAMPLE);
 				glFinish();
 			}
 

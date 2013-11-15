@@ -25,9 +25,11 @@ namespace Sigma{
 	struct RenderTarget {
 		GLuint texture_id;
 		GLuint fbo_id;
+		GLuint rsfbo_id;
+		GLuint color_id;
 		GLuint depth_id;
 
-		RenderTarget() : texture_id(0), fbo_id(0), depth_id(0) {}
+		RenderTarget() : texture_id(0), rsfbo_id(0), color_id(0), fbo_id(0), depth_id(0) {}
 		virtual ~RenderTarget();
 
 		void Use(int slot);
