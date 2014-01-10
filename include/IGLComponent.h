@@ -1,13 +1,18 @@
 #pragma once
+
 #ifndef IGLCOMPONENT_H
 #define IGLCOMPONENT_H
 
+#ifndef __APPLE__
 #include "GL/glew.h"
-#include "IComponent.h"
+#endif
+
+#include "components/SpatialComponent.h"
 #include "GLTransform.h"
 #include "systems/GLSLShader.h"
 #include <unordered_map>
 #include <memory>
+#include "Sigma.h"
 
 namespace Sigma {
 	// A struct to store which index each of its verts are.
@@ -39,29 +44,34 @@ namespace Sigma {
     // http://en.wikipedia.org/wiki/Wavefront_.obj_file#Basic_materials
     struct Material {
         Material() {
-            ka[0] = 0.2f; ka[1] = 0.2f; ka[2] = 0.2f;
-            kd[0] = 0.8f; kd[1] = 0.8f; kd[2] = 0.8f;
+            ka[0] = 1.0f; ka[1] = 1.0f; ka[2] = 1.0f;
+            kd[0] = 1.0f; kd[1] = 1.0f; kd[2] = 1.0f;
             ks[0] = 1.0f; ks[1] = 1.0f; ks[2] = 1.0f;
             tr = 1.0f;
-            ns = 0.0f;
+            hardness = 64.0f;
             illum = 1;
         }
         float ka[3];
         float kd[3];
         float ks[3];
         float tr; // Aka d
-        float ns;
+        float hardness;
         int illum;
         // TODO: Add maps
         GLuint ambientMap;
         GLuint diffuseMap;
         GLuint specularMap;
+		GLuint normalMap;
     };
 
-	class IGLComponent : public IComponent {
+	class IGLComponent : public SpatialComponent {
 	public:
-		IGLComponent() : IComponent(0) { } // Default ctor setting entity ID to 0.
-		IGLComponent(const int entityID) : lightingEnabled(true), infiniteDistance(false), IComponent(entityID) { } // Ctor that sets the entity ID.
+		SET_COMPONENT_TYPENAME("IGLComponent");
+
+		IGLComponent()
+			: lightingEnabled(true), infiniteDistance(false), SpatialComponent(0) {} // Default ctor setting entity ID to 0.
+		IGLComponent(const id_t entityID)
+			: lightingEnabled(true), infiniteDistance(false), SpatialComponent(entityID) {} // Ctor that sets the entity ID.
 
         typedef std::unordered_map<std::string, std::shared_ptr<GLSLShader>> ShaderMap;
 
@@ -71,7 +81,6 @@ namespace Sigma {
 		 * \param entityID The entity this component belongs to.
 		 */
 		virtual void InitializeBuffers() = 0;
-
 
 		/**
 		 * \brief Retrieves the specified buffer.
@@ -104,13 +113,6 @@ namespace Sigma {
 		 * \param proj The current project matrix
 		 */
 		virtual void Render(glm::mediump_float *view, glm::mediump_float *proj)=0;
-
-		/**
-		 * \brief Retrieves the transform object for this component.
-		 *
-		 * \return GLTransform& The transform object.
-		 */
-		GLTransform* Transform() { return &transform; }
 
 		/**
 		 * \brief Return the VAO ID of this component.
@@ -165,7 +167,6 @@ namespace Sigma {
 		unsigned int vao; // The VAO that describes this component's data.
 		unsigned int drawMode; // The current draw mode (ex. GL_TRIANGLES, GL_TRIANGLE_STRIP).
 		GLuint cull_face; // The current culling method for this component.
-		GLTransform transform; // The transform of this component.
 
         std::shared_ptr<GLSLShader> shader; // shaders are shared among components
         // name-->shader map to look up already-loaded shaders (so each can be loaded only once)

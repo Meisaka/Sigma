@@ -5,6 +5,9 @@
 
 namespace Sigma {
 	BulletPhysics::~BulletPhysics() {
+		if (this->mover != nullptr) {
+			delete this->mover;
+		}
 		if (this->dynamicsWorld != nullptr) {
 			delete this->dynamicsWorld;
 		}
@@ -30,10 +33,21 @@ namespace Sigma {
 		this->dynamicsWorld = new btDiscreteDynamicsWorld(this->dispatcher, this->broadphase, this->solver, this->collisionConfiguration);
 		this->dynamicsWorld->setGravity(btVector3(0,-10,0));
 
-		this->mover.InitializeRigidBody(0,1.5f,0,0,0,0);
-		this->dynamicsWorld->addRigidBody(this->mover.GetRigidBody());
-
 		return true;
+	}
+
+	void BulletPhysics::initViewMover(GLTransform& t) {
+		this->moverSphere = new BulletShapeCapsule(1);
+		this->moverSphere->SetCapsuleSize(0.3f, 1.3f);
+		this->moverSphere->InitializeRigidBody(
+			t.GetPosition().x,
+			t.GetPosition().y,
+			t.GetPosition().z,
+			t.GetPitch(),
+			t.GetYaw(),
+			t.GetRoll());
+		this->mover = new PhysicsController(*moverSphere, t);
+		this->dynamicsWorld->addRigidBody(this->moverSphere->GetRigidBody());
 	}
 
 	std::map<std::string,Sigma::IFactory::FactoryFunction>
@@ -46,7 +60,7 @@ namespace Sigma {
 		return retval;
 	}
 
-	IComponent* BulletPhysics::createBulletShapeMesh(const unsigned int entityID, const std::vector<Property> &properties) {
+	IComponent* BulletPhysics::createBulletShapeMesh(const id_t entityID, const std::vector<Property> &properties) {
 		BulletShapeMesh* mesh = new BulletShapeMesh(entityID);
 
 		float scale = 1.0f;
@@ -60,7 +74,10 @@ namespace Sigma {
 		for (auto propitr = properties.begin(); propitr != properties.end(); ++propitr) {
 			const Property*  p = &*propitr;
 
-			if (p->GetName() == "x") {
+			if (p->GetName() == "scale") {
+				scale = p->Get<float>();
+			}
+			else if (p->GetName() == "x") {
 				x = p->Get<float>();
 			}
 			else if (p->GetName() == "y") {
@@ -82,7 +99,7 @@ namespace Sigma {
 				std::cerr << "Loading mesh: " << p->Get<std::string>() << std::endl;
 				GLMesh meshFile(0);
 				meshFile.LoadMesh(p->Get<std::string>());
-				mesh->SetMesh(&meshFile);
+				mesh->SetMesh(&meshFile, scale);
 			}
 		}
 		mesh->InitializeRigidBody(x, y, z, rx, ry, rz);
@@ -94,7 +111,7 @@ namespace Sigma {
 		return mesh;
 	}
 
-	IComponent* BulletPhysics::createBulletShapeSphere(const unsigned int entityID, const std::vector<Property> &properties) {
+	IComponent* BulletPhysics::createBulletShapeSphere(const id_t entityID, const std::vector<Property> &properties) {
 		BulletShapeSphere* sphere = new BulletShapeSphere(entityID);
 
 		float scale = 1.0f;
@@ -141,11 +158,11 @@ namespace Sigma {
 	}
 
 	bool BulletPhysics::Update(const double delta) {
-		this->mover.ApplyForces(delta);
+		this->mover->UpdateForces(delta);
 
 		dynamicsWorld->stepSimulation(delta, 10);
 
-		this->mover.UpdateTransform();
+		this->mover->UpdateTransform();
 
 		return true;
 	}

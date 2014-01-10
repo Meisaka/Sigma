@@ -4,15 +4,15 @@
 #define GL_SCREEN_QUAD
 
 #include "GLMesh.h"
+#include "resources/GLTexture.h"
+#include "Sigma.h"
 
 namespace Sigma {
-	namespace resource {
-		class GLTexture;
-	}
+
 class GLScreenQuad : public GLMesh {
 public:
 	SET_COMPONENT_TYPENAME("GLScreenQuad");
-	GLScreenQuad(int entityID);
+	GLScreenQuad(const id_t entityID);
 	virtual ~GLScreenQuad();
 
 	virtual void InitializeBuffers();
@@ -39,12 +39,21 @@ public:
 
 		return dim;
 	}
+	/**
+	* \brief Set ti true if the texture is put in the buffer inverted (top to bottom), or false if it has already been flipped (botom to top).
+	*
+	 * \param[in] bool val Werther the Quad should have inverted UVs or not.
+	 * \return void 
+	 * \exception  
+	 */
+	void Inverted(bool val) { inverted = val; }
 
 protected:
 	resource::GLTexture* texture;
 	GLuint samplerid;
 	float x, y, w, h;
 	unsigned int texture_size;
+	bool inverted;
 };
 };
 

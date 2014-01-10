@@ -10,30 +10,67 @@
 #include "components/GLScreenQuad.h"
 #include "components/GLScreenCursor.h"
 #include "components/PointLight.h"
+#include "components/SpotLight.h"
 
+#ifdef __APPLE__
+// Do not include <OpenGL/glu.h> because that will include gl.h which will mask all sorts of errors involving the use of deprecated GL APIs until runtime.
+// gluErrorString (and all of glu) is deprecated anyway (TODO).
+extern "C" const GLubyte * gluErrorString (GLenum error);
+#else
 #include "GL/glew.h"
+#endif
+
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
 
 namespace Sigma{
 	// RenderTarget methods
 	RenderTarget::~RenderTarget() {
-		glDeleteTextures(1, &this->texture_id); // Perhaps should check if texture was created for this RT or is used elsewhere
+		glDeleteTextures(this->texture_ids.size(), &this->texture_ids[0]); // Perhaps should check if texture was created for this RT or is used elsewhere
 		glDeleteRenderbuffers(1, &this->depth_id);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glDeleteFramebuffers(1, &this->fbo_id);
 	}
 
-	void RenderTarget::Use(int slot) {
-		glBindFramebuffer(GL_FRAMEBUFFER, this->fbo_id);
+	void RenderTarget::BindWrite() {
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->fbo_id);
+
+		std::vector<GLenum> buffers;
+
+		for(unsigned int i=0; i < this->texture_ids.size(); i++) {
+			buffers.push_back(GL_COLOR_ATTACHMENT0 + i);
+		}
+
+		glDrawBuffers(this->texture_ids.size(), &buffers[0]);
+	}
+
+	void RenderTarget::BindRead() {
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, this->fbo_id);
+	}
+
+	void RenderTarget::UnbindWrite() {
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+		std::vector<GLenum> buffers;
+		buffers.push_back(GL_COLOR_ATTACHMENT0);
+		glDrawBuffers(1, &buffers[0]);
+	}
+
+	void RenderTarget::UnbindRead() {
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 	}
 
 	std::map<std::string, Sigma::resource::GLTexture> OpenGLSystem::textures;
-    OpenGLSystem::OpenGLSystem() : windowWidth(1024), windowHeight(768), deltaAccumulator(0.0),
-		framerate(60.0f), viewMode(""), renderMode(GLS_NONE) {}
 
-	std::map<std::string, Sigma::IFactory::FactoryFunction>
-        OpenGLSystem::getFactoryFunctions() {
+/*<<<<<<< HEAD
+	OpenGLSystem::OpenGLSystem() : windowWidth(1024), windowHeight(768), deltaAccumulator(0.0),
+		framerate(60.0f), viewMode(""), renderMode(GLS_NONE) {}
+=======*/
+	OpenGLSystem::OpenGLSystem() : windowWidth(1024), windowHeight(768), deltaAccumulator(0.0),
+		framerate(60.0f), pointQuad(1000), ambientQuad(1001), spotQuad(1002) {}
+
+
+	std::map<std::string, Sigma::IFactory::FactoryFunction> OpenGLSystem::getFactoryFunctions() {
 		using namespace std::placeholders;
 
 		std::map<std::string, Sigma::IFactory::FactoryFunction> retval;
@@ -41,32 +78,19 @@ namespace Sigma{
 		retval["GLIcoSphere"] = std::bind(&OpenGLSystem::createGLIcoSphere,this,_1,_2);
 		retval["GLCubeSphere"] = std::bind(&OpenGLSystem::createGLCubeSphere,this,_1,_2);
 		retval["GLMesh"] = std::bind(&OpenGLSystem::createGLMesh,this,_1,_2);
-		retval["FPSCamera"] = std::bind(&OpenGLSystem::createGLView,this,_1,_2, "FPSCamera");
-		retval["RiftCamera"] = std::bind(&OpenGLSystem::createGLView,this,_1,_2, "RiftCamera");
-		retval["GLSixDOFView"] = std::bind(&OpenGLSystem::createGLView,this,_1,_2, "GLSixDOFView");
+		retval["RiftCamera"] = std::bind(&OpenGLSystem::createGLView,this,_1,_2);
+		retval["FPSCamera"] = std::bind(&OpenGLSystem::createGLView,this,_1,_2);
+		retval["GLSixDOFView"] = std::bind(&OpenGLSystem::createGLView,this,_1,_2);
 		retval["PointLight"] = std::bind(&OpenGLSystem::createPointLight,this,_1,_2);
+		retval["SpotLight"] = std::bind(&OpenGLSystem::createSpotLight,this,_1,_2);
 		retval["GLScreenQuad"] = std::bind(&OpenGLSystem::createScreenQuad,this,_1,_2);
 		retval["GLScreenCursor"] = std::bind(&OpenGLSystem::createScreenCursor,this,_1,_2);
 
-        return retval;
-    }
+		return retval;
+	}
 
-	IComponent* OpenGLSystem::createGLView(const unsigned int entityID, const std::vector<Property> &properties, std::string mode) {
-		viewMode = mode;
-
-		if(mode=="FPSCamera") {
-			this->views.push_back(new Sigma::event::handler::FPSCamera(entityID));
-		}
-		else if(mode=="RiftCamera") {
-			this->views.push_back(new Sigma::event::handler::RiftCamera(entityID));
-		}
-		else if(mode=="GLSixDOFView") {
-			this->views.push_back(new GLSixDOFView(entityID));
-		}
-		else {
-			std::cerr << "Invalid view type!" << std::endl;
-			return nullptr;
-		}
+	IComponent* OpenGLSystem::createGLView(const id_t entityID, const std::vector<Property> &properties) {
+		this->views.push_back(new IGLView(entityID));
 
 		float x=0.0f, y=0.0f, z=0.0f, rx=0.0f, ry=0.0f, rz=0.0f;
 
@@ -99,13 +123,15 @@ namespace Sigma{
 			}
 		}
 
-		this->views[this->views.size() - 1]->Transform.Move(x,y,z);
-		this->views[this->views.size() - 1]->Transform.Rotate(rx,ry,rz);
+		this->views[this->views.size() - 1]->Transform()->TranslateTo(x,y,z);
+		this->views[this->views.size() - 1]->Transform()->Rotate(rx,ry,rz);
+
+		this->addComponent(entityID, this->views[this->views.size() - 1]);
 
 		return this->views[this->views.size() - 1];
 	}
 
-	IComponent* OpenGLSystem::createGLSprite(const unsigned int entityID, const std::vector<Property> &properties) {
+	IComponent* OpenGLSystem::createGLSprite(const id_t entityID, const std::vector<Property> &properties) {
 		GLSprite* spr = new GLSprite(entityID);
 		float scale = 1.0f;
 		float x = 0.0f;
@@ -157,54 +183,54 @@ namespace Sigma{
 		return spr;
 	}
 
-	IComponent* OpenGLSystem::createGLIcoSphere(const unsigned int entityID, const std::vector<Property> &properties) {
-			Sigma::GLIcoSphere* sphere = new Sigma::GLIcoSphere(entityID);
-			float scale = 1.0f;
-			float x = 0.0f;
-			float y = 0.0f;
-			float z = 0.0f;
+	IComponent* OpenGLSystem::createGLIcoSphere(const id_t entityID, const std::vector<Property> &properties) {
+		Sigma::GLIcoSphere* sphere = new Sigma::GLIcoSphere(entityID);
+		float scale = 1.0f;
+		float x = 0.0f;
+		float y = 0.0f;
+		float z = 0.0f;
 
-			int componentID = 0;
-			std::string shader_name = "shaders/icosphere";
+		int componentID = 0;
+		std::string shader_name = "shaders/icosphere";
 
-			for (auto propitr = properties.begin(); propitr != properties.end(); ++propitr) {
-				const Property*  p = &(*propitr);
-				if (p->GetName() == "scale") {
-					scale = p->Get<float>();
-					continue;
-				}
-				else if (p->GetName() == "x") {
-					x = p->Get<float>();
-					continue;
-				}
-				else if (p->GetName() == "y") {
-					y = p->Get<float>();
-					continue;
-				}
-				else if (p->GetName() == "z") {
-					z = p->Get<float>();
-					continue;
-				}
-				else if (p->GetName() == "id") {
-					componentID = p->Get<int>();
-				}
-				else if (p->GetName() == "shader"){
-					shader_name = p->Get<std::string>();
-				}
-				else if (p->GetName() == "lightEnabled") {
-					sphere->SetLightingEnabled(p->Get<bool>());
-				}
+		for (auto propitr = properties.begin(); propitr != properties.end(); ++propitr) {
+			const Property*  p = &(*propitr);
+			if (p->GetName() == "scale") {
+				scale = p->Get<float>();
+				continue;
 			}
-			sphere->Transform()->Scale(scale,scale,scale);
-			sphere->Transform()->Translate(x,y,z);
-			sphere->LoadShader(shader_name);
-			sphere->InitializeBuffers();
-			sphere->SetCullFace("back");
-			this->addComponent(entityID,sphere);
-			return sphere;
+			else if (p->GetName() == "x") {
+				x = p->Get<float>();
+				continue;
+			}
+			else if (p->GetName() == "y") {
+				y = p->Get<float>();
+				continue;
+			}
+			else if (p->GetName() == "z") {
+				z = p->Get<float>();
+				continue;
+			}
+			else if (p->GetName() == "id") {
+				componentID = p->Get<int>();
+			}
+			else if (p->GetName() == "shader"){
+				shader_name = p->Get<std::string>();
+			}
+			else if (p->GetName() == "lightEnabled") {
+				sphere->SetLightingEnabled(p->Get<bool>());
+			}
+		}
+		sphere->Transform()->Scale(scale,scale,scale);
+		sphere->Transform()->Translate(x,y,z);
+		sphere->LoadShader(shader_name);
+		sphere->InitializeBuffers();
+		sphere->SetCullFace("back");
+		this->addComponent(entityID,sphere);
+		return sphere;
 	}
 
-	IComponent* OpenGLSystem::createGLCubeSphere(const unsigned int entityID, const std::vector<Property> &properties) {
+	IComponent* OpenGLSystem::createGLCubeSphere(const id_t entityID, const std::vector<Property> &properties) {
 		Sigma::GLCubeSphere* sphere = new Sigma::GLCubeSphere(entityID);
 
 		std::string texture_name = "";
@@ -223,6 +249,7 @@ namespace Sigma{
 		float ry = 0.0f;
 		float rz = 0.0f;
 		int componentID = 0;
+
 		for (auto propitr = properties.begin(); propitr != properties.end(); ++propitr) {
 			const Property*  p = &(*propitr);
 			if (p->GetName() == "scale") {
@@ -282,11 +309,12 @@ namespace Sigma{
 		sphere->LoadShader(shader_name);
 		sphere->LoadTexture(texture_name);
 		sphere->InitializeBuffers();
+
 		this->addComponent(entityID,sphere);
 		return sphere;
 	}
 
-	IComponent* OpenGLSystem::createGLMesh(const unsigned int entityID, const std::vector<Property> &properties) {
+	IComponent* OpenGLSystem::createGLMesh(const id_t entityID, const std::vector<Property> &properties) {
 		Sigma::GLMesh* mesh = new Sigma::GLMesh(entityID);
 
 		float scale = 1.0f;
@@ -334,7 +362,7 @@ namespace Sigma{
 				std::cerr << "Loading mesh: " << p->Get<std::string>() << std::endl;
 				mesh->LoadMesh(p->Get<std::string>());
 			}
-			else if (p->GetName() == "shader"){
+			else if (p->GetName() == "shader") {
 				shaderfile = p->Get<std::string>();
 			}
 			else if (p->GetName() == "id") {
@@ -358,20 +386,21 @@ namespace Sigma{
 		else {
 			mesh->LoadShader(); // load default
 		}
-        mesh->InitializeBuffers();
-        this->addComponent(entityID,mesh);
-        return mesh;
-    }
+		mesh->InitializeBuffers();
+		this->addComponent(entityID,mesh);
+		return mesh;
+	}
 
-	IComponent* OpenGLSystem::createScreenQuad(const unsigned int entityID, const std::vector<Property> &properties) {
+	IComponent* OpenGLSystem::createScreenQuad(const id_t entityID, const std::vector<Property> &properties) {
 		Sigma::GLScreenQuad* quad = new Sigma::GLScreenQuad(entityID);
 
 		float x = 0.0f;
 		float y = 0.0f;
 		float w = 0.0f;
 		float h = 0.0f;
+
 		int componentID = 0;
-		std::string textrueName;
+		std::string textureName;
 		bool textureInMemory = false;
 
 		for (auto propitr = properties.begin(); propitr != properties.end(); ++propitr) {
@@ -389,31 +418,31 @@ namespace Sigma{
 				h = p->Get<float>();
 			}
 			else if (p->GetName() == "textureName") {
-				textrueName = p->Get<std::string>();
+				textureName = p->Get<std::string>();
 				textureInMemory = true;
 			}
 			else if (p->GetName() == "textureFileName") {
-				textrueName = p->Get<std::string>();
+				textureName = p->Get<std::string>();
 			}
 		}
 
 		// Check if the texture is loaded and load it if not.
-		if (textures.find(textrueName) == textures.end()) {
+		if (textures.find(textureName) == textures.end()) {
 			Sigma::resource::GLTexture texture;
 			if (textureInMemory) { // We are using an in memory texture. It will be populated somewhere else
-				Sigma::OpenGLSystem::textures[textrueName] = texture;
+				Sigma::OpenGLSystem::textures[textureName] = texture;
 			}
 			else { // The texture in on disk so load it.
-				texture.LoadDataFromFile(textrueName);
+				texture.LoadDataFromFile(textureName);
 				if (texture.GetID() != 0) {
-					Sigma::OpenGLSystem::textures[textrueName] = texture;
+					Sigma::OpenGLSystem::textures[textureName] = texture;
 				}
 			}
 		}
 
 		// It should be loaded, but in case an error occurred double check for it.
-		if (textures.find(textrueName) != textures.end()) {
-			quad->SetTexture(&Sigma::OpenGLSystem::textures[textrueName]);
+		if (textures.find(textureName) != textures.end()) {
+			quad->SetTexture(&Sigma::OpenGLSystem::textures[textureName]);
 		}
 
 		quad->SetPosition(x, y);
@@ -421,10 +450,11 @@ namespace Sigma{
 		quad->LoadShader("shaders/quad");
 		quad->InitializeBuffers();
 		this->screensSpaceComp.push_back(std::unique_ptr<IGLComponent>(quad));
+
 		return quad;
 	}
 
-	IComponent* OpenGLSystem::createScreenCursor(const unsigned int entityID, const std::vector<Property> &properties) {
+	IComponent* OpenGLSystem::createScreenCursor(const id_t entityID, const std::vector<Property> &properties) {
 		Sigma::event::handler::GLScreenCursor* cursor = new Sigma::event::handler::GLScreenCursor(entityID);
 
 		float x = 0.0f;
@@ -493,7 +523,7 @@ namespace Sigma{
 		return cursor;
 	}
 
-	IComponent* OpenGLSystem::createPointLight(const unsigned int entityID, const std::vector<Property> &properties) {
+	IComponent* OpenGLSystem::createPointLight(const id_t entityID, const std::vector<Property> &properties) {
 		Sigma::PointLight *light = new Sigma::PointLight(entityID);
 
 		for (auto propitr = properties.begin(); propitr != properties.end(); ++propitr) {
@@ -617,20 +647,129 @@ namespace Sigma{
 		return true;
 	}
 
-	int OpenGLSystem::createRenderTarget(const unsigned int w, const unsigned int h, const unsigned int format) {
-		std::unique_ptr<RenderTarget> newRT(new RenderTarget());
+	IComponent* OpenGLSystem::createSpotLight(const id_t entityID, const std::vector<Property> &properties) {
+		Sigma::SpotLight *light = new Sigma::SpotLight(entityID);
 
-		glGenTextures(1, &newRT->texture_id);
-		glBindTexture(GL_TEXTURE_2D, newRT->texture_id);
-		glGenerateMipmap(GL_TEXTURE_2D);
+		float x=0.0f, y=0.0f, z=0.0f;
+		float rx=0.0f, ry=0.0f, rz=0.0f;
+
+		for (auto propitr = properties.begin(); propitr != properties.end(); ++propitr) {
+			const Property*  p = &*propitr;
+			if (p->GetName() == "x") {
+				x = p->Get<float>();
+			}
+			else if (p->GetName() == "y") {
+				y = p->Get<float>();
+			}
+			else if (p->GetName() == "z") {
+				z = p->Get<float>();
+			}
+			else if (p->GetName() == "rx") {
+				rx = p->Get<float>();
+			}
+			else if (p->GetName() == "ry") {
+				ry = p->Get<float>();
+			}
+			else if (p->GetName() == "rz") {
+				rz = p->Get<float>();
+			}
+			else if (p->GetName() == "intensity") {
+				light->intensity = p->Get<float>();
+			}
+			else if (p->GetName() == "cr") {
+				light->color.r = p->Get<float>();
+			}
+			else if (p->GetName() == "cg") {
+				light->color.g = p->Get<float>();
+			}
+			else if (p->GetName() == "cb") {
+				light->color.b = p->Get<float>();
+			}
+			else if (p->GetName() == "ca") {
+				light->color.a = p->Get<float>();
+			}
+			else if (p->GetName() == "innerAngle") {
+				light->innerAngle = p->Get<float>();
+				light->cosInnerAngle = glm::cos(light->innerAngle);
+			}
+			else if (p->GetName() == "outerAngle") {
+				light->outerAngle = p->Get<float>();
+				light->cosOuterAngle = glm::cos(light->outerAngle);
+			}
+		}
+
+		light->transform.TranslateTo(x, y, z);
+		light->transform.Rotate(rx, ry, rz);
+
+		this->addComponent(entityID, light);
+
+		return light;
+	}
+
+/*<<<<<<< HEAD
+	int OpenGLSystem::createRenderTarget(...) {
+...
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+*/
+	int OpenGLSystem::createRenderTarget(const unsigned int w, const unsigned int h, bool hasDepth) {
+		std::unique_ptr<RenderTarget> newRT(new RenderTarget());
 
-		//NULL means reserve texture memory, but texels are undefined
-		glTexImage2D(GL_TEXTURE_2D, 0, (GLint)format, (GLsizei)w, (GLsizei)h, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+		newRT->width = w;
+		newRT->height = h;
+		newRT->hasDepth = hasDepth;
 
+		this->renderTargets.push_back(std::move(newRT));
+		return (this->renderTargets.size() - 1);
+	}
+
+	void OpenGLSystem::initRenderTarget(unsigned int rtID) {
+		RenderTarget *rt = this->renderTargets[rtID].get();
+
+		// Make sure we're on the back buffer
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		// Get backbuffer depth bit width
+		int depthBits;
+#ifdef __APPLE__
+		// The modern way.
+		glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_DEPTH, GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, &depthBits);
+#else
+		glGetIntegerv(GL_DEPTH_BITS, &depthBits);
+#endif
+
+		// Create the depth render buffer
+		if(rt->hasDepth) {
+			glGenRenderbuffers(1, &rt->depth_id);
+			glBindRenderbuffer(GL_RENDERBUFFER, rt->depth_id);
+
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, rt->width, rt->height);
+			printOpenGLError();
+
+			glBindRenderbuffer(GL_RENDERBUFFER, 0);
+		}
+
+		// Create the frame buffer object
+		glGenFramebuffers(1, &rt->fbo_id);
+		printOpenGLError();
+
+		glBindFramebuffer(GL_FRAMEBUFFER, rt->fbo_id);
+
+		for(unsigned int i=0; i < rt->texture_ids.size(); ++i) {
+			//Attach 2D texture to this FBO
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0+i, GL_TEXTURE_2D, rt->texture_ids[i], 0);
+			printOpenGLError();
+		}
+
+		if(rt->hasDepth) {
+			//Attach depth buffer to FBO
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rt->depth_id);
+			printOpenGLError();
+		}
+
+/*<<<< HEAD
 		glGenFramebuffers(1, &newRT->fbo_id);
 		glGenFramebuffers(1, &newRT->rsfbo_id);
 
@@ -656,36 +795,66 @@ namespace Sigma{
 		//Attach depth buffer to FBO
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, newRT->depth_id);
 		
+===*/
 		//Does the GPU support current FBO configuration?
 		GLenum status;
 		status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 
 		switch(status) {
-			case GL_FRAMEBUFFER_COMPLETE:
-				std::cout << "Successfully created render target." << std::endl;
-				break;
-			default:
-				std::cerr << "Error: Framebuffer format is not compatible." << std::endl;
+		case GL_FRAMEBUFFER_COMPLETE:
+			std::cout << "Successfully created render target.\n";
+			break;
+		default:
+			assert(0 && "Error: Framebuffer format is not compatible.");
 		}
 
 		// Unbind objects
-		glBindRenderbuffer(GL_RENDERBUFFER, 0);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glBindTexture(GL_TEXTURE_2D, 0);
-
-		this->renderTargets.push_back(std::move(newRT));
-		return (this->renderTargets.size() - 1);
 	}
 
-    bool OpenGLSystem::Update(const double delta) {
-        this->deltaAccumulator += delta;
+	void OpenGLSystem::createRTBuffer(unsigned int rtID, GLint format, GLenum internalFormat, GLenum type) {
+		RenderTarget *rt = this->renderTargets[rtID].get();
 
-        // Check if the deltaAccumulator is greater than 1/<framerate>th of a second.
-        //  ..if so, it's time to render a new frame
-        if (this->deltaAccumulator > 1000.0 / this->framerate) {
-            
-			// Hacky for now, but if we created at least one render target
-			// then the 0th one is the draw buffer, 1+ could be for post-processing
+		// Create a texture for each requested target
+		GLuint texture_id;
+
+		glGenTextures(1, &texture_id);
+		glBindTexture(GL_TEXTURE_2D, texture_id);
+
+		// Texture params for full screen quad
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		//NULL means reserve texture memory, but texels are undefined
+		glTexImage2D(GL_TEXTURE_2D, 0, format,
+					 (GLsizei)rt->width,
+					 (GLsizei)rt->height,
+					 0, internalFormat, type, NULL);
+
+		//Attach 2D texture to this FBO
+		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0+rt->texture_ids.size(), GL_TEXTURE_2D, texture_id, 0);
+
+		this->renderTargets[rtID]->texture_ids.push_back(texture_id);
+
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+
+	bool OpenGLSystem::Update(const double delta) {
+		this->deltaAccumulator += delta;
+
+		// Check if the deltaAccumulator is greater than 1/<framerate>th of a second.
+		//  ..if so, it's time to render a new frame
+		if (this->deltaAccumulator > (1.0 / this->framerate)) {
+
+			/////////////////////
+			// Rendering Setup //
+			/////////////////////
+
+			glm::vec3 viewPosition;
+			glm::mat4 viewProjInv;
+/*<<<<<<< HEAD
 			if(renderMode != GLS_NONE && this->renderTargets.size() > 0) {
 				// Bind the primary render target
 				glBindFramebuffer(GL_FRAMEBUFFER, this->renderTargets[0]->fbo_id);
@@ -707,10 +876,10 @@ namespace Sigma{
 			}
 			else { looprender = 0; }
 
-            glClearColor(0.0f,0.0f,0.0f,0.0f);
+			glClearColor(0.0f,0.0f,0.0f,0.0f);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
 			for(renderstage = 0; renderstage <= looprender; renderstage++) {
-            // Set up the scene to a "clean" state.
+			// Set up the scene to a "clean" state.
 
 			if(renderMode == GLS_RIFT && this->renderTargets.size() > 0) {
 				glEnable(GL_MULTISAMPLE);
@@ -748,6 +917,13 @@ namespace Sigma{
 					ProjMatrix = this->stereoProjectionRight;
 					viewProj = ProjMatrix * viewProj;
 				}
+=======*/
+
+			// Setup the view matrix and position variables
+			glm::mat4 viewMatrix;
+			if (this->views.size() > 0) {
+				viewMatrix = this->views[this->views.size() - 1]->GetViewMatrix();
+				viewPosition = this->views[this->views.size() - 1]->Transform()->GetPosition();
 			}
 			else {
 				if(this->renderTargets.size() > 0) {
@@ -758,6 +934,7 @@ namespace Sigma{
 				}
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
 
+/*<<<<<<< HEAD
 				if (this->views.size() > 0) {
 					viewInfMatrix = this->views[this->views.size() - 1]->GetViewMatrix();
 					//viewPosition = this->views[this->views.size() - 1]->Transform.GetPosition();
@@ -766,28 +943,42 @@ namespace Sigma{
 				viewProj *= this->ProjectionMatrix;
 				ProjMatrix= this->ProjectionMatrix;
 			}
-			// Loop through each light, rendering all components
-			// TODO: Cull components based on light
-			// TODO: Implement scissors test
-			// Potentially move to deferred shading depending on
-			// visual style needs
-			
-			// Ambient Pass
-			// Loop through and draw each component.
+=======*/
+			// Setup the projection matrix
+			glm::mat4 viewProj = glm::mul(this->ProjectionMatrix, viewMatrix);
 
-			
+			viewProjInv = glm::inverse(viewProj);
 
 			// Calculate frustum for culling
 			this->GetView(0)->CalculateFrustum(viewProj);
 
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			// Clear the backbuffer and primary depth/stencil buffer
+			glClearColor(0.0f,0.0f,0.0f,1.0f);
+			glViewport(0, 0, this->windowWidth, this->windowHeight); // Set the viewport size to fill the window
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
 
+			//////////////////
+			// GBuffer Pass //
+			//////////////////
+
+			// Bind the first buffer, which is the Geometry Buffer
+			if(this->renderTargets.size() > 0) {
+				this->renderTargets[0]->BindWrite();
+			}
+
+			// Disable blending
+			glDisable(GL_BLEND);
+
+			// Clear the GBuffer
+			glClearColor(0.0f,0.0f,0.0f,1.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
+
+			// Loop through and draw each GL Component component.
 			for (auto eitr = this->_Components.begin(); eitr != this->_Components.end(); ++eitr) {
 				for (auto citr = eitr->second.begin(); citr != eitr->second.end(); ++citr) {
 					IGLComponent *glComp = dynamic_cast<IGLComponent *>(citr->second.get());
 
-					if(glComp) {
+					if(glComp && glComp->IsLightingEnabled()) {
 						glComp->GetShader()->Use();
 
 						// Set view position
@@ -797,86 +988,219 @@ namespace Sigma{
 						glUniform1f(glGetUniformLocation(glComp->GetShader()->GetProgram(), "ambLightIntensity"), 0.05f);
 						glUniform1f(glGetUniformLocation(glComp->GetShader()->GetProgram(), "diffuseLightIntensity"), 0.0f);
 						glUniform1f(glGetUniformLocation(glComp->GetShader()->GetProgram(), "specularLightIntensity"), 0.0f);
+/*<< HEAD
 						if(glComp->IsInfiniteDistance()) {
 							glComp->Render(&viewInfMatrix[0][0], &ProjMatrix[0][0]);
 						}
 						else {
 							glComp->Render(&viewMatrix[0][0], &ProjMatrix[0][0]);
 						}
+*/
+						glComp->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
 					}
 				}
 			}
 
-			// Light passes
+			// Unbind the first buffer, which is the Geometry Buffer
+			if(this->renderTargets.size() > 0) {
+				this->renderTargets[0]->UnbindWrite();
+			}
+
+			// Copy gbuffer's depth buffer to the screen depth buffer
+			// needed for non deferred rendering at the end of this method
+			// NOTE: I'm sure there's a faster way to do this
+			if(this->renderTargets.size() > 0) {
+				this->renderTargets[0]->BindRead();
+			}
+
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+			glBlitFramebuffer(0, 0, this->windowWidth, this->windowHeight, 0, 0, this->windowWidth, this->windowHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+			if(this->renderTargets.size() > 0) {
+				this->renderTargets[0]->UnbindRead();
+			}
+
+			///////////////////
+			// Lighting Pass //
+			///////////////////
+
+			// Disable depth testing
+			glDepthFunc(GL_NONE);
+			glDepthMask(GL_FALSE);
+
+			// Bind the Geometry buffer for reading
+			if(this->renderTargets.size() > 0) {
+				this->renderTargets[0]->BindRead();
+			}
+
+			// Ambient light pass
+
+			// Ensure that blending is disabled
+			glDisable(GL_BLEND);
+
+			// Currently simple constant ambient light, could use SSAO here
+			glm::vec4 ambientLight(0.1f, 0.1f, 0.1f, 1.0f);
+
+			GLSLShader &shader = (*this->ambientQuad.GetShader().get());
+			shader.Use();
+
+			// Load variables
+			glUniform4f(shader("ambientColor"), ambientLight.r, ambientLight.g, ambientLight.b, ambientLight.a);
+			glUniform1i(shader("colorBuffer"), 0);
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
+
+			this->ambientQuad.Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
+
+			shader.UnUse();
+
+			// Dynamic light passes
+			// Turn on additive blending
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_ONE, GL_ONE);
+
+			// Loop through each light, render a fullscreen quad if it is visible
 			for(auto eitr = this->_Components.begin(); eitr != this->_Components.end(); ++eitr) {
 				for (auto citr = eitr->second.begin(); citr != eitr->second.end(); ++citr) {
-					// Check if this component is a light
+					// Check if this component is a point light
 					PointLight *light = dynamic_cast<PointLight*>(citr->second.get());
 
-					// If it is a light, and it intersects the frustum, then render
-					if(light/* && this->GetView(0)->CameraFrustum.isectSphere(light->position, light->radius)*/) {
-						// Modify depth test to allow for overlaying
-						// lights
-						glDepthFunc(GL_EQUAL);
+					// If it is a point light, and it intersects the frustum, then render
+					if(light && this->GetView(0)->CameraFrustum.intersectsSphere(light->position, light->radius) ) {
 
-						// Make sure additive blending is enabled
-						glEnable(GL_BLEND);
-						glBlendFunc(GL_ONE, GL_ONE);
+						GLSLShader &shader = (*this->pointQuad.GetShader().get());
+						shader.Use();
 
-						// Loop through and draw each component.
-						for (auto child_eitr = this->_Components.begin(); child_eitr != this->_Components.end(); ++child_eitr) {
-							for (auto child_citr = child_eitr->second.begin(); child_citr != child_eitr->second.end(); ++child_citr) {
-								IGLComponent *glComp = dynamic_cast<IGLComponent *>(child_citr->second.get());
+						// Load variables
+						glUniform3fv(shader("viewPosW"), 1, &viewPosition[0]);
+						glUniformMatrix4fv(shader("viewProjInverse"), 1, false, &viewProjInv[0][0]);
+						glUniform3fv(shader("lightPosW"), 1, &light->position[0]);
+						glUniform1f(shader("lightRadius"), light->radius);
+						glUniform4fv(shader("lightColor"), 1, &light->color[0]);
 
-								if(glComp && glComp->IsLightingEnabled()) {
-									glComp->GetShader()->Use();
+						glUniform1i(shader("diffuseBuffer"), 0);
+						glUniform1i(shader("normalBuffer"), 1);
+						glUniform1i(shader("depthBuffer"), 2);
 
-									// Turn off ambient light for additive blending
-									glUniform1f(glGetUniformLocation(glComp->GetShader()->GetProgram(), "ambLightIntensity"), 0.0f);
+						// Bind GBuffer textures
+						glActiveTexture(GL_TEXTURE0);
+						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
+						glActiveTexture(GL_TEXTURE1);
+						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[1]);
+						glActiveTexture(GL_TEXTURE2);
+						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[2]);
 
-									// Set view position
-									//glUniform3f(glGetUniformBlockIndex(glComp->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
+						this->pointQuad.Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
 
-									// Activate the current point light for this shader
-									light->Activate(glComp->GetShader().get());
+						shader.UnUse();
 
-									// Render
-									if(glComp->IsInfiniteDistance()) {
-										glComp->Render(&viewInfMatrix[0][0], &ProjMatrix[0][0]);
-									}
-									else {
-										glComp->Render(&viewMatrix[0][0], &ProjMatrix[0][0]);
-									}
-								}
-							}
-						}
+						continue;
+					}
 
-						// Remove blending
-						glDisable(GL_BLEND);
+					SpotLight *spotLight = dynamic_cast<SpotLight *>(citr->second.get());
 
-						// Re-enabled depth test
-						glDepthFunc(GL_LESS);
+					if(spotLight && spotLight->IsEnabled()) {
+						GLSLShader &shader = (*this->spotQuad.GetShader().get());
+						shader.Use();
+
+						glm::vec3 position = spotLight->transform.ExtractPosition();
+						glm::vec3 direction = spotLight->transform.GetForward();
+
+						// Load variables
+						glUniform3fv(shader("viewPosW"), 1, &viewPosition[0]);
+						glUniformMatrix4fv(shader("viewProjInverse"), 1, false, &viewProjInv[0][0]);
+						glUniform3fv(shader("lightPosW"), 1, &position[0]);
+						glUniform3fv(shader("lightDirW"), 1, &direction[0]);
+						glUniform4fv(shader("lightColor"), 1, &spotLight->color[0]);
+						glUniform1f(shader("lightCosInnerAngle"), spotLight->cosInnerAngle);
+						glUniform1f(shader("lightCosOuterAngle"), spotLight->cosOuterAngle);
+
+						glUniform1i(shader("diffuseBuffer"), 0);
+						glUniform1i(shader("normalBuffer"), 1);
+						glUniform1i(shader("depthBuffer"), 2);
+
+						// Bind GBuffer textures
+						glActiveTexture(GL_TEXTURE0);
+						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
+						glActiveTexture(GL_TEXTURE1);
+						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[1]);
+						glActiveTexture(GL_TEXTURE2);
+						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[2]);
+
+						this->spotQuad.Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
+
+						shader.UnUse();
+
+						continue;
 					}
 				}
 			}
+
+			// Unbind the Geometry buffer for reading
+			if(this->renderTargets.size() > 0) {
+				this->renderTargets[0]->UnbindRead();
+			}
+
+			// Remove blending
+			glDisable(GL_BLEND);
+
+			// Re-enabled depth test
+			glDepthFunc(GL_LESS);
+			glDepthMask(GL_TRUE);
+
+			////////////////////
+			// Composite Pass //
+			////////////////////
+
+			// Not needed yet
+
+			///////////////////////
+			// Draw Unlit Objects
+			///////////////////////
+
+			// Loop through and draw each GL Component component.
+			for (auto eitr = this->_Components.begin(); eitr != this->_Components.end(); ++eitr) {
+				for (auto citr = eitr->second.begin(); citr != eitr->second.end(); ++citr) {
+					IGLComponent *glComp = dynamic_cast<IGLComponent *>(citr->second.get());
+
+					if(glComp && !glComp->IsLightingEnabled()) {
+						glComp->GetShader()->Use();
+
+						// Set view position
+						glUniform3f(glGetUniformBlockIndex(glComp->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
+
+/*<<<<<<< HEAD
+						if(glComp->IsInfiniteDistance()) {
+							glComp->Render(&viewInfMatrix[0][0], &ProjMatrix[0][0]);
+						}
+						else {
+							glComp->Render(&viewMatrix[0][0], &ProjMatrix[0][0]);
+						}
+=======*/
+						glComp->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
+					}
+				}
+			}
+
+			//////////////////
+			// Overlay Pass //
+			//////////////////
 
 			// Enable transparent rendering
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+/*<<<<<<< HEAD
 			for (auto citr = this->screensSpaceComp.begin(); citr != this->screensSpaceComp.end(); ++citr) {
-					citr->get()->GetShader()->Use();
-					/* ** screen quads don't have this stuff **
-					// Set view position
-					//glUniform3f(glGetUniformBlockIndex(citr->get()->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
+				citr->get()->GetShader()->Use();
+				glUniform1i((*citr->get()->GetShader())("enable_projection"), (renderstereo ? 1 : 0));
+				citr->get()->Render(&viewFixMatrix[0][0], &ProjMatrix[0][0]);
+=======*/
 
-					// For now, turn on ambient intensity and turn off lighting
-					glUniform1f(glGetUniformLocation(citr->get()->GetShader()->GetProgram(), "ambLightIntensity"), 0.05f);
-					glUniform1f(glGetUniformLocation(citr->get()->GetShader()->GetProgram(), "diffuseLightIntensity"), 0.0f);
-					glUniform1f(glGetUniformLocation(citr->get()->GetShader()->GetProgram(), "specularLightIntensity"), 0.0f);
-					*/
-					glUniform1i((*citr->get()->GetShader())("enable_projection"), (renderstereo ? 1 : 0));
-					citr->get()->Render(&viewFixMatrix[0][0], &ProjMatrix[0][0]);
+			for (auto citr = this->screensSpaceComp.begin(); citr != this->screensSpaceComp.end(); ++citr) {
+				citr->get()->GetShader()->Use();
+				citr->get()->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
 			}
+
 			// Remove blending
 			glDisable(GL_BLEND);
 
@@ -885,6 +1209,7 @@ namespace Sigma{
 			// Unbind frame buffer
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+/*<<<<<<< HEAD
 			// Stereo post processing (for Rift)
 			if(renderMode == GLS_RIFT && this->renderTargets.size() > 0) {
 				glBindFramebuffer( GL_READ_FRAMEBUFFER, this->renderTargets[0]->fbo_id);
@@ -918,12 +1243,12 @@ namespace Sigma{
 				glDisable(GL_MULTISAMPLE);
 				glFinish();
 			}
-
-            this->deltaAccumulator = 0.0;
-            return true;
-        }
-        return false;
-    }
+*/
+			this->deltaAccumulator = 0.0;
+			return true;
+		}
+		return false;
+	}
 
 	GLTransform *OpenGLSystem::GetTransformFor(const unsigned int entityID) {
 		auto entity = &(_Components[entityID]);
@@ -942,10 +1267,10 @@ namespace Sigma{
 		return 0;
 	}
 
-    const int* OpenGLSystem::Start() {
-        // Use the GL3 way to get the version number
-        glGetIntegerv(GL_MAJOR_VERSION, &OpenGLVersion[0]);
-        glGetIntegerv(GL_MINOR_VERSION, &OpenGLVersion[1]);
+	const int* OpenGLSystem::Start() {
+		// Use the GL3 way to get the version number
+		glGetIntegerv(GL_MAJOR_VERSION, &OpenGLVersion[0]);
+		glGetIntegerv(GL_MINOR_VERSION, &OpenGLVersion[1]);
 
 		// Sanity check to make sure we are at least in a good major version number.
 		assert((OpenGLVersion[0] > 1) && (OpenGLVersion[0] < 5));
@@ -957,31 +1282,35 @@ namespace Sigma{
 		}
 
 		// Generate a projection matrix (the "view") based on basic window dimensions
-        this->ProjectionMatrix = glm::perspective(
-            45.0f, // field-of-view (height)
-            aspectRatio, // aspect ratio
-            0.1f, // near culling plane
-            10000.0f // far culling plane
-            );
+		this->ProjectionMatrix = glm::perspective(
+			45.0f, // field-of-view (height)
+			aspectRatio, // aspect ratio
+			0.1f, // near culling plane
+			10000.0f // far culling plane
+			);
 
-        // App specific global gl settings
-        glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+		// App specific global gl settings
+		glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+#if __APPLE__
+		// GL_TEXTURE_CUBE_MAP_SEAMLESS and GL_MULTISAMPLE are Core.
+		glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS); // allows for cube-mapping without seams
+		glEnable(GL_MULTISAMPLE);
+#else
 		if (GLEW_AMD_seamless_cubemap_per_texture) {
 			glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS); // allows for cube-mapping without seams
 		}
 		if (GLEW_ARB_multisample) {
 			glEnable(GL_MULTISAMPLE_ARB);
 		}
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
-
-		// Hack in a full screen quad for post processing
+#endif
+/*<<<<<<< HEAD
+		// This really needs a FullScreenQuad or similar for all the multipass stuff
 		this->multipassShader = new GLSLShader();
 		std::string vertFilename = "shaders/post.vert";
-        std::string fragFilename = "shaders/post.frag";
-        GLSLShader* theShader = new GLSLShader();
-        this->multipassShader->LoadFromFile(GL_VERTEX_SHADER, vertFilename);
-        this->multipassShader->LoadFromFile(GL_FRAGMENT_SHADER, fragFilename);
+		std::string fragFilename = "shaders/post.frag";
+		GLSLShader* theShader = new GLSLShader();
+		this->multipassShader->LoadFromFile(GL_VERTEX_SHADER, vertFilename);
+		this->multipassShader->LoadFromFile(GL_FRAGMENT_SHADER, fragFilename);
 		this->multipassShader->CreateAndLinkProgram();
 		Vertex allscreenverts[4] = {
 			Vertex(-1.0f,-1.0f, 0.0f),Vertex(1.0f,-1.0f, 0.0f),
@@ -992,28 +1321,81 @@ namespace Sigma{
 			TexCoord(0.0f,1.0f), TexCoord(1.0f,1.0f)
 		};
 		glGenVertexArrays(1, &this->multipassVAO); // Generate a VAO
-        glBindVertexArray(this->multipassVAO); // Bind the VAO
+		glBindVertexArray(this->multipassVAO); // Bind the VAO
 
-        glGenBuffers(2, &this->multipassBuffers[0]); // Generate a vertex buffer.
-        glBindBuffer(GL_ARRAY_BUFFER, this->multipassBuffers[0]); // Bind the vertex buffer.
-        glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * 4, allscreenverts, GL_STATIC_DRAW); // Stores the verts in the vertex buffer.
-        GLint posLocation = glGetAttribLocation(this->multipassShader->GetProgram(), "in_Position");
+		glGenBuffers(2, &this->multipassBuffers[0]); // Generate a vertex buffer.
+		glBindBuffer(GL_ARRAY_BUFFER, this->multipassBuffers[0]); // Bind the vertex buffer.
+		glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * 4, allscreenverts, GL_STATIC_DRAW); // Stores the verts in the vertex buffer.
+		GLint posLocation = glGetAttribLocation(this->multipassShader->GetProgram(), "in_Position");
 		glVertexAttribPointer(posLocation, 3, GL_FLOAT, GL_FALSE, 0, 0);
-        glEnableVertexAttribArray(posLocation);
+		glEnableVertexAttribArray(posLocation);
 		glBindBuffer(GL_ARRAY_BUFFER, this->multipassBuffers[1]); // Bind the UV buffer.
-        glBufferData(GL_ARRAY_BUFFER, sizeof(TexCoord) * 4, allscreenuv, GL_STATIC_DRAW); // Stores the verts in the vertex buffer.
-        GLint uvLocation = glGetAttribLocation(this->multipassShader->GetProgram(), "in_UV");
+		glBufferData(GL_ARRAY_BUFFER, sizeof(TexCoord) * 4, allscreenuv, GL_STATIC_DRAW); // Stores the verts in the vertex buffer.
+		GLint uvLocation = glGetAttribLocation(this->multipassShader->GetProgram(), "in_UV");
 		glVertexAttribPointer(uvLocation, 2, GL_FLOAT, GL_FALSE, 0, 0);
-        glEnableVertexAttribArray(uvLocation);
+		glEnableVertexAttribArray(uvLocation);
 		glBindVertexArray(0); // unbind when done
-		// Create main framebuffer (index 0)
-		//this->createRenderTarget(1024, 768, GL_RGBA8);
+=======*/
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
+		glEnable(GL_DEPTH_TEST);
 
-        return OpenGLVersion;
-    }
+		// Setup a screen quad for deferred rendering
+		this->pointQuad.SetSize(1.0f, 1.0f);
+		this->pointQuad.SetPosition(0.0f, 0.0f);
+		this->pointQuad.LoadShader("shaders/pointlight");
+		this->pointQuad.Inverted(true);
+		this->pointQuad.InitializeBuffers();
+		this->pointQuad.SetCullFace("none");
 
-    void OpenGLSystem::SetViewportSize(const unsigned int width, const unsigned int height) {
-        this->windowHeight = height;
+		this->pointQuad.GetShader()->Use();
+		this->pointQuad.GetShader()->AddUniform("viewPosW");
+		this->pointQuad.GetShader()->AddUniform("viewProjInverse");
+		this->pointQuad.GetShader()->AddUniform("lightPosW");
+		this->pointQuad.GetShader()->AddUniform("lightRadius");
+		this->pointQuad.GetShader()->AddUniform("lightColor");
+		this->pointQuad.GetShader()->AddUniform("diffuseBuffer");
+		this->pointQuad.GetShader()->AddUniform("normalBuffer");
+		this->pointQuad.GetShader()->AddUniform("depthBuffer");
+		this->pointQuad.GetShader()->UnUse();
+
+		this->spotQuad.SetSize(1.0f, 1.0f);
+		this->spotQuad.SetPosition(0.0f, 0.0f);
+		this->spotQuad.LoadShader("shaders/spotlight");
+		this->spotQuad.Inverted(true);
+		this->spotQuad.InitializeBuffers();
+		this->spotQuad.SetCullFace("none");
+
+		this->spotQuad.GetShader()->Use();
+		this->spotQuad.GetShader()->AddUniform("viewPosW");
+		this->spotQuad.GetShader()->AddUniform("viewProjInverse");
+		this->spotQuad.GetShader()->AddUniform("lightPosW");
+		this->spotQuad.GetShader()->AddUniform("lightDirW");
+		this->spotQuad.GetShader()->AddUniform("lightColor");
+		this->spotQuad.GetShader()->AddUniform("lightCosInnerAngle");
+		this->spotQuad.GetShader()->AddUniform("lightCosOuterAngle");
+		this->spotQuad.GetShader()->AddUniform("diffuseBuffer");
+		this->spotQuad.GetShader()->AddUniform("normalBuffer");
+		this->spotQuad.GetShader()->AddUniform("depthBuffer");
+		this->spotQuad.GetShader()->UnUse();
+
+		this->ambientQuad.SetSize(1.0f, 1.0f);
+		this->ambientQuad.SetPosition(0.0f, 0.0f);
+		this->ambientQuad.LoadShader("shaders/ambient");
+		this->ambientQuad.Inverted(true);
+		this->ambientQuad.InitializeBuffers();
+		this->ambientQuad.SetCullFace("none");
+
+		this->ambientQuad.GetShader()->Use();
+		this->ambientQuad.GetShader()->AddUniform("ambientColor");
+		this->ambientQuad.GetShader()->AddUniform("colorBuffer");
+		this->ambientQuad.GetShader()->UnUse();
+
+		return OpenGLVersion;
+	}
+
+	void OpenGLSystem::SetViewportSize(const unsigned int width, const unsigned int height) {
+		this->windowHeight = height;
 		this->windowWidth = width;
 
 		// Determine the aspect ratio and sanity check it to a safe ratio
@@ -1022,12 +1404,31 @@ namespace Sigma{
 			aspectRatio = 4.0f / 3.0f;
 		}
 
-        // update projection matrix based on new aspect ratio
-        this->ProjectionMatrix = glm::perspective(
-            45.0f,
-            aspectRatio,
-            0.1f,
-            10000.0f
-            );
-    }
+		// update projection matrix based on new aspect ratio
+		this->ProjectionMatrix = glm::perspective(
+			45.0f,
+			aspectRatio,
+			0.1f,
+			10000.0f
+			);
+	}
+
 } // namespace Sigma
+
+//-----------------------------------------------------------------
+// Print for OpenGL errors
+//
+// Returns 1 if an OpenGL error occurred, 0 otherwise.
+//
+
+int printOglError(const std::string &file, int line) {
+	GLenum glErr;
+	int retCode = 0;
+
+	glErr = glGetError();
+	if (glErr != GL_NO_ERROR) {
+		std::cerr << "glError in file " << file << " @ line " << line << ": " << gluErrorString(glErr) << std::endl;
+		retCode = 1;
+	}
+	return retCode;
+}

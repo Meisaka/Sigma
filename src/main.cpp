@@ -1,72 +1,89 @@
 #include <iostream>
 
 #include "systems/OpenGLSystem.h"
+#include "systems/OpenALSystem.h"
 #include "systems/BulletPhysics.h"
 #include "systems/FactorySystem.h"
-#include "controllers/GLSixDOFViewController.h"
 #include "controllers/GUIController.h"
 #include "controllers/FPSCamera.h"
-#include "controllers/RiftCamera.h"
-#include "components/BulletMover.h"
+#include "components/PhysicsController.h"
 #include "components/GLScreenQuad.h"
 #include "components/GLScreenCursor.h"
 #include "SCParser.h"
 #include "systems/WebGUISystem.h"
-
-#if defined OS_Win32
-#include "os/win32/win32.h"
-#elif defined OS_SDL
-#include "os/sdl/SDLSys.h"
-#endif
+#include "OS.h"
+#include "components/SpotLight.h"
 
 int main(int argCount, char **argValues) {
+	Sigma::OS glfwos;
 	Sigma::OpenGLSystem glsys;
+	Sigma::OpenALSystem alsys;
 	Sigma::BulletPhysics bphys;
 	Sigma::WebGUISystem webguisys;
 
 	Sigma::FactorySystem& factory = Sigma::FactorySystem::getInstance();
 	factory.register_Factory(glsys);
+	factory.register_Factory(alsys);
 	factory.register_Factory(bphys);
 	factory.register_Factory(webguisys);
 
-	bool riftpresent = false;
-
-	IOpSys* os = nullptr;
-
-#if defined OS_Win32
-	os = new win32();
-#elif defined OS_SDL
-	os = new SDLSys();
-#endif
-
-	if(os->InitRift()) {
-		riftpresent = true;
-	}
-	// Create the window
-	std::cout << "Creating graphics window." << std::endl;
-	if(os->CreateGraphicsWindow(1024,768) == 0) {
-		std::cerr << "Error creating window!" << std::endl;
-		delete os;
+	if (!glfwos.InitializeWindow(1024, 768, "Sigma GLFW Test Window")) {
+		std::cerr << "Failed creating the window or context." << std::endl;
 		return -1;
 	}
 
-	// Start the openGL system
+	/////////////////////////////
+	// Start the openGL system //
+	/////////////////////////////
+
 	std::cout << "Initializing OpenGL system." << std::endl;
 	const int* version = glsys.Start();
-	glsys.SetViewportSize(os->GetWindowWidth(), os->GetWindowHeight());
+
+	glsys.SetViewportSize(glfwos.GetWindowWidth(), glfwos.GetWindowHeight());
 
 	if (version[0] == -1) {
 		std::cerr << "Error starting OpenGL!" << std::endl;
-		delete os;
 		return -1;
-	} else {
+	}
+	else {
 		std::cout << "OpenGL version: " << version[0] << "." << version[1] << std::endl;
 	}
 
+	//////////////////////////////
+	// Setup deferred rendering //
+	//////////////////////////////
+
+	// Create render target for the GBuffer, Light Accumulation buffer, and final composite buffer
+	unsigned int geoBuffer = glsys.createRenderTarget(glfwos.GetWindowWidth(), glfwos.GetWindowHeight(), true);
+	glsys.createRTBuffer(geoBuffer, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE);	// Diffuse texture
+	glsys.createRTBuffer(geoBuffer, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE);	// Normal texture
+	glsys.createRTBuffer(geoBuffer, GL_R32F, GL_RED, GL_FLOAT);				// Depth texture
+	glsys.initRenderTarget(geoBuffer); // Create the opengl assets
+
+	///////////////////
+	// Setup physics //
+	///////////////////
+
 	bphys.Start();
 
+	///////////////
+	// Setup GUI //
+	///////////////
+
 	webguisys.Start();
-	webguisys.SetWindowSize(os->GetWindowWidth(), os->GetWindowHeight());
+	webguisys.SetWindowSize(glfwos.GetWindowWidth(), glfwos.GetWindowHeight());
+
+	/////////////////
+	// Setup Sound //
+	/////////////////
+
+	std::cout << "Initializing OpenAL system." << std::endl;
+	alsys.Start();
+	alsys.test(); // try sound
+	
+	////////////////
+	// Load scene //
+	////////////////
 
 	// Parse the scene file to retrieve entities
 	Sigma::parser::SCParser parser;
@@ -82,9 +99,10 @@ int main(int argCount, char **argValues) {
 	for (unsigned int i = 0; i < parser.EntityCount(); ++i) {
 		Sigma::parser::Entity* e = parser.GetEntity(i);
 		for (auto itr = e->components.begin(); itr != e->components.end(); ++itr) {
+
 			// Currently, physicsmover components must come after gl* components
 			if((*itr).type == "PhysicsMover") {
-				GLTransform *transform = glsys.GetTransformFor(e->id);
+				Sigma::GLTransform *transform = glsys.GetTransformFor(e->id);
 				if(transform) {
 					Property p("transform", transform);
 					itr->properties.push_back(p);
@@ -94,13 +112,17 @@ int main(int argCount, char **argValues) {
 				}
 			}
 
-            factory.create(itr->type,e->id, const_cast<std::vector<Property>&>(itr->properties));
+			factory.create(itr->type,e->id, const_cast<std::vector<Property>&>(itr->properties));
 		}
 	}
 
+	//////////////////////
+	// Setup user input //
+	//////////////////////
+
 	// View and ViewMover creation has been moved to test.sc, but for
-	// now provide sensible defaults.  Final engine should require
-	// definition in scene file.  Currently entity ID for view must be 1
+	// now provide sensible defaults. Final engine should require
+	// definition in scene file. Currently entity ID for view must be 1
 	// for this to work.
 
 	// No view provided, create a default FPS view
@@ -115,113 +137,98 @@ int main(int argCount, char **argValues) {
 		props.push_back(p_y);
 		props.push_back(p_z);
 
-		glsys.createGLView(1, props, "FPSCamera");
+		glsys.createGLView(1, props);
 	}
 
-	// Still hard coded to use entity ID #1
-	// Link the graphics view to the physics system's view mover
-	Sigma::BulletMover* mover = bphys.getViewMover();
+	//Create the controller
+	//Perhaps a little awkward currently, should create a generic
+	//controller class ancestor
+	bphys.initViewMover(*glsys.GetView()->Transform());
 
-	const OVR::HMDInfo *RInfo;
+	Sigma::event::handler::FPSCamera theCamera(*bphys.getViewMover());
+	glsys.GetView()->Transform()->SetEuler(true);
+	glsys.GetView()->Transform()->SetMaxRotation(glm::vec3(45.0f,0,0));
+	glfwos.RegisterKeyboardEventHandler(&theCamera);
+	glfwos.RegisterMouseEventHandler(&theCamera);
+	theCamera.os = &glfwos;
+	
+	// Sync bullet physics object with gl camera
 
-	// Create the controller
-	// Perhaps a little awkward currently, should create a generic
-	// controller class ancestor
-	if(glsys.GetViewMode() == "FPSCamera") {
-	    using Sigma::event::handler::FPSCamera;
-        FPSCamera* theCamera = static_cast<FPSCamera*>(glsys.GetView());
-		IOpSys::KeyboardEventSystem.Register(theCamera);
-		IOpSys::MouseEventSystem.Register(theCamera);
-		theCamera->SetMover(mover);
-	} else if(glsys.GetViewMode() == "RiftCamera") {
-	    using Sigma::event::handler::RiftCamera;
-        RiftCamera* theCamera = static_cast<RiftCamera*>(glsys.GetView());
-		IOpSys::KeyboardEventSystem.Register(theCamera);
-		IOpSys::MouseEventSystem.Register(theCamera);
-		theCamera->SetMover(mover);
-		if(riftpresent) {
-			theCamera->SetHMD(os->GetRiftHMD());
-			RInfo = &theCamera->GetHMDInfo();
-			glsys.SetStereoMode(*RInfo);
-			glsys.SetFrameRate(90.0f);
-			os->ToggleRiftFullscreen(*RInfo);
-			glsys.SetViewportSize(os->GetWindowWidth(), os->GetWindowHeight());
-		}
-	} else if (glsys.GetViewMode() == "GLSixDOFView") {
-		Sigma::event::handler::GLSixDOFViewController cameraController(glsys.GetView(), mover);
-		IOpSys::KeyboardEventSystem.Register(&cameraController);
-	}
+	///////////////////
+	// Configure GUI //
+	///////////////////
 
 	Sigma::event::handler::GUIController guicon;
 	guicon.SetGUI(webguisys.getComponent(100, Sigma::WebGUIView::getStaticComponentTypeName()));
-	IOpSys::KeyboardEventSystem.Register(&guicon);
-	IOpSys::MouseEventSystem.Register(&guicon);
+	glfwos.RegisterKeyboardEventHandler(&guicon);
+	glfwos.RegisterMouseEventHandler(&guicon);
+	
+	// Call now to clear the delta after startup.
+	glfwos.GetDeltaTime();
+	{
+		Sigma::ALSound *als = (Sigma::ALSound *)alsys.getComponent(200, Sigma::ALSound::getStaticComponentTypeName());
+		if(als) {
+			als->Play(Sigma::PLAYBACK_LOOP);
+		}
+	}
 
-	Sigma::event::handler::GUIController guicon2;
-	guicon2.SetGUI(webguisys.getComponent(101, Sigma::WebGUIView::getStaticComponentTypeName()));
-	IOpSys::KeyboardEventSystem.Register(&guicon2);
-	IOpSys::MouseEventSystem.Register(&guicon2);
+	enum FlashlightState {
+		FL_ON,
+		FL_TURNING_ON,
+		FL_OFF,
+		FL_TURNING_OFF
+	};
 
-	Sigma::event::handler::GUIController guicon3;
-	guicon3.SetGUI(webguisys.getComponent(102, Sigma::WebGUIView::getStaticComponentTypeName()));
-	IOpSys::KeyboardEventSystem.Register(&guicon3);
-	IOpSys::MouseEventSystem.Register(&guicon3);
+	FlashlightState fs = FL_OFF;
 
-	Sigma::event::handler::GLScreenCursor *guicur;
-	guicur = static_cast<Sigma::event::handler::GLScreenCursor*>(
-		glsys.getScreenComponent(110, Sigma::event::handler::GLScreenCursor::getStaticComponentTypeName())
-		);
-	IOpSys::MouseEventSystem.Register(guicur);
-
-	// Setup the timer
-	os->SetupTimer();
-
-	// Begin main loop
-	double delta;
-	bool isWireframe=false;
-
-	// Load a font
-	while (os->MessageLoop()) {
-
+	while (!glfwos.Closing()) {
 		// Get time in ms, store it in seconds too
-		delta = os->GetDeltaTime();
-		double deltaSec = (double)delta/1000.0f;
+		double deltaSec = glfwos.GetDeltaTime();
 
-		// Debug keys
-		if (os->KeyReleased('P', true)) { // Wireframe mode
-			if (!isWireframe) {
-				glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-				isWireframe = true;
-			} else {
-				glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
-				isWireframe = false;
+		// Process input
+		if(glfwos.CheckKeyState(Sigma::event::KS_DOWN, GLFW_KEY_F)) {
+			if(fs==FL_OFF) {
+				fs=FL_TURNING_ON;
+			} else if (fs==FL_ON) {
+				fs=FL_TURNING_OFF;
 			}
 		}
 
-		if (os->KeyReleased('N', true)) {
-			os->ToggleRiftFullscreen(*RInfo);
-			glsys.SetViewportSize(os->GetWindowWidth(), os->GetWindowHeight());
-		}
-		if (os->KeyReleased('M', true)) {
-			os->ToggleFullscreen();
-			glsys.SetViewportSize(os->GetWindowWidth(), os->GetWindowHeight());
+		if(glfwos.CheckKeyState(Sigma::event::KS_UP, GLFW_KEY_F)) {
+			if(fs==FL_TURNING_ON) {
+				// Enable flashlight
+				Sigma::SpotLight *spotlight = static_cast<Sigma::SpotLight *>(glsys.getComponent(151, Sigma::SpotLight::getStaticComponentTypeName()));
+				spotlight->enabled = true;
+				// Rotate flashlight up
+				// Enable spotlight
+				fs=FL_ON;
+			} else if (fs==FL_TURNING_OFF) {
+				// Disable spotlight
+				Sigma::SpotLight *spotlight = static_cast<Sigma::SpotLight *>(glsys.getComponent(151, Sigma::SpotLight::getStaticComponentTypeName()));
+				spotlight->enabled = false;
+				// Rotate flashlight down
+				// Disable flashlight
+				fs=FL_OFF;
+			}
 		}
 
-		// Temporary exit key for when mouse is under control
-		if (os->KeyReleased(Sigma::event::KEY_ESCAPE, true)) {
-			break;
-		}
+		///////////////////////
+		// Update subsystems //
+		///////////////////////
 
 		// Pass in delta time in seconds
 		bphys.Update(deltaSec);
 		webguisys.Update(deltaSec);
 
+		alsys.Update();
+
 		// Update the renderer and present
-		if (glsys.Update(delta)) {
-			os->Present(glsys.getRender());
+		if (glsys.Update(deltaSec)) {
+			glfwos.SwapBuffers();
 		}
+
+		glfwos.OSMessageLoop();
 	}
 
-	delete os;
 	return 0;
 }

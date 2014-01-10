@@ -6,23 +6,15 @@
 #include "glm/glm.hpp"
 #include "IComponent.h"
 #include "systems/GLSLShader.h"
+#include "Sigma.h"
 
 namespace Sigma {
 	class PointLight : public IComponent {
 	public:
-		PointLight(const unsigned int entityID);
+		PointLight(const id_t entityID);
 		virtual ~PointLight() {}
 
 		SET_COMPONENT_TYPENAME("PointLight");
-
-		/*
-		 * /brief Sets this point light as the
-		 *        light used by the given shader
-		 *
-		 * /params shader: the shader to use
-		 *
-		 */
-		void Activate(GLSLShader *shader);
 
 		glm::vec3 position;
 		glm::vec4 color;

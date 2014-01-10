@@ -2,26 +2,26 @@
 #ifndef FPSVIEW_H
 #define FPSVIEW_H
 
+#include <glm/glm.hpp>
+
 #include "systems/KeyboardInputSystem.h"
 #include "systems/MouseInputSystem.h"
-#include "systems/IGLView.h"
+
+#include "OS.h"
 
 namespace Sigma {
-	class BulletMover;
+	class PhysicsController;
 
 	namespace event {
 		namespace handler {
-			// A type of handler. This handler controls an OpenGL 6 DOF view.
-			class FPSCamera : public IKeyboardEventHandler, public IMouseEventHandler, public IGLView {
+			class FPSCamera : public IKeyboardEventHandler, public IMouseEventHandler {
 			public:
-			    SET_COMPONENT_TYPENAME("FPS_CAMERA");
-
-				FPSCamera(int entityID);
+				FPSCamera(PhysicsController& controller);
 
 				/**
 				 * \brief Triggered whenever a key state change event happens
 				 *
-				 * This method adjusts the view mover according to various key state changes.
+				 * This method adjusts the view controller according to various key state changes.
 				 * \param key The key for which the state change is happening
 				 * \param state The new state of the key (KS_UP or KS_DOWN)
 				 * \return void
@@ -29,42 +29,49 @@ namespace Sigma {
 				void KeyStateChange(const unsigned int key, const KEY_STATE state);
 
 				/**
+				 * \brief Called when focus for this controller has been lost.
+				 *
+				 * \return void
+				 */
+				void LostKeyboardFocus();
+
+				/**
 				 * \brief Handles a change in mouse position.
 				 *
-				 * \param[in/out] float dx, dy The change in mouse position.
-				 * \param[in/out] float dy
+				 * \param[in] float dx, dy The change in mouse position.
+				 * \param[in] float dy
 				 */
 				virtual void MouseMove(float x, float y, float dx, float dy);
 
-				// Not used but required to implement.
-				virtual void MouseDown(Sigma::event::BUTTON btn, float x, float y) {}
-				virtual void MouseUp(Sigma::event::BUTTON btn, float x, float y) {}
-				virtual void MouseVisible(bool visible) {}
+				/**
+				 * \brief Enables mouse look when the right mouse button is clicked.
+				 *
+				 * \param[in] BUTTON btn The button that was clicked.
+				 * \param[in] float x, y Position of the cursor when the click occurred.
+				 * \return void
+				 */
+				virtual void MouseDown(BUTTON btn, float x, float y);
 
 				/**
-				 * \brief Updates and returns the view matrix.
+				 * \brief Currently does nothing.
 				 *
-				 * \return const glm::mat4 The current view matrix.
+				 * \param[in] BUTTON btn The button that was released.
+				 * \param[in] float x, y Position of the cursor when the release occurred.
+				 * \return void
 				 */
+				virtual void MouseUp(BUTTON btn, float x, float y);
+
 				const glm::mat4 GetViewMatrix();
 				virtual const glm::mat4 GetViewMatrix(ViewSelection, float ipd = 0.0f) { return GetViewMatrix(); }
 
-				/**
-				 * \brief Sets the view mover for this event handler.
-				 *
-				 * The view mover does the moving.
-				 * \param[in/out] ViewMover * m The view mover.
-				 * \return    void 
-				 */
-				virtual void SetMover(BulletMover* m);
+				OS* os; //Very ugly, but there is no good way to do it right now
 			private:
-				BulletMover* mover; // The view mover component that applies the rotations and forces set in the trigger method.
-                static const float SPEED_TRANSLATE, SPEED_ROTATE, BOOST_MULTIPLIER; // Speed variables
-                glm::vec3 translation; // Current translation.
+				PhysicsController& controller; 
+				static const float SPEED_TRANSLATE, SPEED_ROTATE, BOOST_MULTIPLIER; // Speed variables
+				glm::vec3 translation; // Current translation.
+				bool mouseLook;
 			};
 		}
 	}
 }
-
 #endif // FPSVIEW_H
-

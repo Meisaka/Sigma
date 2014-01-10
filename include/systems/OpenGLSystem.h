@@ -4,7 +4,9 @@
 
 #include "Property.h"
 
+#ifndef __APPLE__
 #include "GL/glew.h"
+#endif
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
 
@@ -15,24 +17,35 @@
 #include "IGLComponent.h"
 #include "systems/IGLView.h"
 #include <vector>
-#include <OVR.h>
+//#include <OVR.h>
 #include "resources/GLTexture.h"
+#include "components/GLScreenQuad.h"
+#include "Sigma.h"
 
 struct IGLView;
+
+int printOglError(const std::string &file, int line);
+#define printOpenGLError() printOglError(__FILE__, __LINE__)
 
 namespace Sigma{
 
 	struct RenderTarget {
-		GLuint texture_id;
+		std::vector<GLuint> texture_ids;
 		GLuint fbo_id;
 		GLuint rsfbo_id;
 		GLuint color_id;
 		GLuint depth_id;
+		unsigned int width;
+		unsigned int height;
+		bool hasDepth;
 
-		RenderTarget() : texture_id(0), rsfbo_id(0), color_id(0), fbo_id(0), depth_id(0) {}
+		RenderTarget() : fbo_id(0), depth_id(0) {}
 		virtual ~RenderTarget();
 
-		void Use(int slot);
+		void BindWrite();
+		void BindRead();
+		void UnbindWrite();
+		void UnbindRead();
 	};
 
 	enum GLSysRenderMode {
@@ -43,88 +56,91 @@ namespace Sigma{
 		GLS_RIFT
 	};
 
-    class OpenGLSystem
-        : public Sigma::IFactory, public ISystem<IComponent> {
-    public:
+	class OpenGLSystem
+		: public Sigma::IFactory, public ISystem<IComponent> {
+	public:
 
-        OpenGLSystem();
+		OpenGLSystem();
 
-        /**
-         * \brief Starts the OpenGL rendering system.
-         *
-         * Starts the OpenGL rendering system and creates a rendering context. It will also attempt to create a newer rendering context (>3) if available.
-         * \return -1 in the 0 index on failure, else the major and minor version in index 0 and 1 respectively.
-         */
-        const int* Start();
+		/**
+		 * \brief Starts the OpenGL rendering system.
+		 *
+		 * Starts the OpenGL rendering system and creates a rendering context. It will also attempt to create a newer rendering context (>3) if available.
+		 * \return -1 in the 0 index on failure, else the major and minor version in index 0 and 1 respectively.
+		 */
+		const int* Start();
 
-        /**
-         * \brief Causes an update in the system based on the change in time.
-         *
-         * Updates the state of the system based off how much time has elapsed since the last update.
-         * \param delta the time (in milliseconds) since the last update
-         * \return true if rendering was performed
-         */
-        bool Update(const double delta);
+		/**
+		 * \brief Causes an update in the system based on the change in time.
+		 *
+		 * Updates the state of the system based off how much time has elapsed since the last update.
+		 * \param delta the time (in seconds) since the last update
+		 * \return true if rendering was performed
+		 */
+		bool Update(const double delta);
 
-        /**
-         * \brief Sets the window width and height for glViewport
-         *
-         * \param width new width for the window
-         * \param height new height for the window
-         * \return void
-         */
-        void SetWindowDim(int width, int height) { this->windowWidth = width; this->windowHeight = height; }
+		/**
+		 * \brief Sets the window width and height for glViewport
+		 *
+		 * \param width new width for the window
+		 * \param height new height for the window
+		 * \return void
+		 */
+		void SetWindowDim(int width, int height) { this->windowWidth = width; this->windowHeight = height; }
 
-        /**
-         * \brief Sets the viewport width and height.
-         *
-         * \param width new viewport width
-         * \param height new viewport height
-         */
-        void SetViewportSize(const unsigned int width, const unsigned int height);
+		/**
+		 * \brief Sets the viewport width and height.
+		 *
+		 * \param width new viewport width
+		 * \param height new viewport height
+		 */
+		void SetViewportSize(const unsigned int width, const unsigned int height);
 
-        /**
-         * \brief set the framerate at runtime
-         *
-         *  Note that the constructor sets a default of 60fps
-         */
-        void SetFrameRate(double fr) { this->framerate = fr; }
+		/**
+		 * \brief set the framerate at runtime
+		 *
+		 *  Note that the constructor sets a default of 60fps
+		 */
+		void SetFrameRate(double fr) { this->framerate = fr; }
 
-        std::map<std::string,FactoryFunction> getFactoryFunctions();
+		std::map<std::string,FactoryFunction> getFactoryFunctions();
 
-		IComponent* createPointLight(const unsigned int entityID, const std::vector<Property> &properties);
-		IComponent* createScreenQuad(const unsigned int entityID, const std::vector<Property> &properties);
-		IComponent* createScreenCursor(const unsigned int entityID, const std::vector<Property> &properties);
+		IComponent* createPointLight(const id_t entityID, const std::vector<Property> &properties);
+		IComponent* createSpotLight(const id_t entityID, const std::vector<Property> &properties);
+		IComponent* createScreenQuad(const id_t entityID, const std::vector<Property> &properties);
+		IComponent* createScreenCursor(const id_t entityID, const std::vector<Property> &properties);
 
 		// TODO: Move these methods to the components themselves.
-        IComponent* createGLSprite(const unsigned int entityID, const std::vector<Property> &properties) ;
-        IComponent* createGLIcoSphere(const unsigned int entityID, const std::vector<Property> &properties) ;
-        IComponent* createGLCubeSphere(const unsigned int entityID, const std::vector<Property> &properties) ;
-        IComponent* createGLMesh(const unsigned int entityID, const std::vector<Property> &properties) ;
+		IComponent* createGLSprite(const id_t entityID, const std::vector<Property> &properties) ;
+		IComponent* createGLIcoSphere(const id_t entityID, const std::vector<Property> &properties) ;
+		IComponent* createGLCubeSphere(const id_t entityID, const std::vector<Property> &properties) ;
+		IComponent* createGLMesh(const id_t entityID, const std::vector<Property> &properties) ;
 		// Views are not technically components, but perhaps they should be
-		IComponent* createGLView(const unsigned int entityID, const std::vector<Property> &properties, std::string mode) ;
+		IComponent* createGLView(const id_t entityID, const std::vector<Property> &properties) ;
 
 		// Managing rendering internals
 		/*
 		 * \brief creates a new render target of desired size
 		 */
-		int createRenderTarget(const unsigned int w, const unsigned int h, const unsigned int format);
-		
+		int createRenderTarget(const unsigned int w, const unsigned int h, bool hasDepth);
+
 		/*
 		 * \brief returns the fbo_id of primary render target (index 0)
 		 */
-		int getRender() { return (this->renderTargets.size() > 0) ? this->renderTargets[0]->fbo_id : -1; }
-		int getRenderTexture() { return (this->renderTargets.size() > 0) ? this->renderTargets[0]->texture_id : -1; }
+		int getRenderTarget(unsigned int rtID) { return (this->renderTargets.size() > rtID) ? this->renderTargets[rtID]->fbo_id : -1; }
+		int getRenderTexture(const unsigned int target=0) { return (this->renderTargets.size() > 0) ? this->renderTargets[0]->texture_ids[target] : -1; }
+		void createRTBuffer(unsigned int rtID, GLint format, GLenum internalFormat, GLenum type);
+		void initRenderTarget(unsigned int rtID);
 
 		// Rendering methods
 		void RenderTexture(GLuint texture_id);
 
-        /**
-         * \brief Gets the specified view.
-         *
+		/**
+		 * \brief Gets the specified view.
+		 *
 		 * \param unsigned int index The index of the view to retrieve.
-         * \return IGLView* The specified view.
-         */
+		 * \return IGLView* The specified view.
+		 */
 		IGLView* GetView(unsigned int index = 0) const {
 			if (index >= this->views.size()) {
 				//return this->views[this->views.size() - 1];
@@ -144,8 +160,8 @@ namespace Sigma{
 		/**
 		 * \brief Adds a view to the stack.
 		 *
-		 * \param[in/out] IGLView * view The view to add to the stack.
-		 * \return void 
+		 * \param[in] IGLView * view The view to add to the stack.
+		 * \return void
 		 */
 		void PushView(IGLView* view) {
 			this->views.push_back(view);
@@ -155,7 +171,7 @@ namespace Sigma{
 		 * \brief Pops a view from the stack.
 		 *
 		 * Pops a view from the stack and deletes it.
-		 * \return void 
+		 * \return void
 		 */
 		void PopView() {
 			if (this->views.size() > 0) {
@@ -166,14 +182,6 @@ namespace Sigma{
 
 		GLTransform* GetTransformFor(const unsigned int entityID);
 
-		/**
-		 * \brief Gets the current view mode.
-		 *
-		 * This method needs to be reworked because views are now stack based and as such this is for the primary view.
-		 * \return    const std::string& The current view mode.
-		 */
-		const std::string& GetViewMode() { return this->viewMode; }
-
 		static std::map<std::string, Sigma::resource::GLTexture> textures;
 
 		IGLComponent* getScreenComponent(std::size_t EntityID, IComponent::ComponentID ID) {
@@ -182,60 +190,65 @@ namespace Sigma{
 					return &*(*citr);
 				}
 			}
-            return NULL;
-        }
-    private:
-        unsigned int windowWidth; // Store the width of our window
-        unsigned int windowHeight; // Store the height of our window
+			return NULL;
+		}
+	private:
+		unsigned int windowWidth; // Store the width of our window
+		unsigned int windowHeight; // Store the height of our window
 
-        int OpenGLVersion[2];
+		int OpenGLVersion[2];
 
 		GLSysRenderMode renderMode;
 
-		// Scene matrices
-        glm::mat4 ProjectionMatrix;
-        std::vector<IGLView*> views; // A stack of the view. A vector is used to support random access.
-		
+// Rift HEAD
+		glm::mat4 ProjectionMatrix;
+		std::vector<IGLView*> views; // A stack of the view. A vector is used to support random access.
+
 		glm::mat4 stereoProjectionLeft; // projections for stereo render
-        glm::mat4 stereoProjectionRight;
+		glm::mat4 stereoProjectionRight;
 		float stereoViewLeft; // displacements for view matrix
 		float stereoViewRight;
 		float stereoViewIPD;
 		GLsizei stereoFBTw; // frame buffer size (not the same as screen size, usually larger)
-        GLsizei stereoFBTh;
+		GLsizei stereoFBTh;
 		GLint stereoLeftVPx; // viewport settings (left)
-        GLint stereoLeftVPy;
-        GLsizei stereoLeftVPw;
-        GLsizei stereoLeftVPh;
-        GLint stereoRightVPx; // viewport settings (right)
-        GLint stereoRightVPy;
-        GLsizei stereoRightVPw;
-        GLsizei stereoRightVPh;
+		GLint stereoLeftVPy;
+		GLsizei stereoLeftVPw;
+		GLsizei stereoLeftVPh;
+		GLint stereoRightVPx; // viewport settings (right)
+		GLint stereoRightVPy;
+		GLsizei stereoRightVPw;
+		GLsizei stereoRightVPh;
 
 		glm::vec2 riftLensCenterL;
-        glm::vec2 riftLensCenterR;
-        glm::vec2 riftScreenCenterL;
-        glm::vec2 riftScreenCenterR;
-        glm::vec2 riftScaleOut;
-        glm::vec2 riftScaleIn;
+		glm::vec2 riftLensCenterR;
+		glm::vec2 riftScreenCenterL;
+		glm::vec2 riftScreenCenterR;
+		glm::vec2 riftScaleOut;
+		glm::vec2 riftScaleIn;
 		glm::vec4 riftDistortionK;
 		glm::vec4 riftChromaK;
-        
+
 		// post processing hack
 		GLuint multipassVAO;
 		GLuint multipassBuffers[2];
 		GLSLShader* multipassShader;
+//=======
+		// Scene matrices
+		glm::mat4 ProjectionMatrix;
+		std::vector<IGLView*> views; // A stack of the view. A vector is used to support random access.
 
-        double deltaAccumulator; // milliseconds since last render
-        double framerate; // default is 60fps
-		
-		// Type of view to create
-		std::string viewMode;
+		double deltaAccumulator; // milliseconds since last render
+		double framerate; // default is 60fps
+
+		// Utility quads for rendering
+		// TODO make this smarter, allow multiple shaders/materials per glcomponent
+		GLScreenQuad pointQuad, spotQuad, ambientQuad;
 
 		// Render targets to draw to
 		std::vector<std::unique_ptr<RenderTarget>> renderTargets;
 
 		std::vector<std::unique_ptr<IGLComponent>> screensSpaceComp; // A vector that holds only screen space components. These are rendered separately.
-    }; // class OpenGLSystem
+	}; // class OpenGLSystem
 } // namespace Sigma
 #endif // OPENGLSYSTEM_H
