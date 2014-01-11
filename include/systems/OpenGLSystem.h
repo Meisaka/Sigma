@@ -17,7 +17,7 @@
 #include "IGLComponent.h"
 #include "systems/IGLView.h"
 #include <vector>
-//#include <OVR.h>
+#include <OVR.h>
 #include "resources/GLTexture.h"
 #include "components/GLScreenQuad.h"
 #include "Sigma.h"
@@ -201,9 +201,6 @@ namespace Sigma{
 		GLSysRenderMode renderMode;
 
 // Rift HEAD
-		glm::mat4 ProjectionMatrix;
-		std::vector<IGLView*> views; // A stack of the view. A vector is used to support random access.
-
 		glm::mat4 stereoProjectionLeft; // projections for stereo render
 		glm::mat4 stereoProjectionRight;
 		float stereoViewLeft; // displacements for view matrix

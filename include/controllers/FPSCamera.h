@@ -61,9 +61,6 @@ namespace Sigma {
 				 */
 				virtual void MouseUp(BUTTON btn, float x, float y);
 
-				const glm::mat4 GetViewMatrix();
-				virtual const glm::mat4 GetViewMatrix(ViewSelection, float ipd = 0.0f) { return GetViewMatrix(); }
-
 				OS* os; //Very ugly, but there is no good way to do it right now
 			private:
 				PhysicsController& controller; 

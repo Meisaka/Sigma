@@ -57,7 +57,8 @@ namespace Sigma{
 		VIEW_FIXED_RIGHT,
 	};
 
-	struct IGLView : public Sigma::SpatialComponent {
+	class IGLView : public Sigma::SpatialComponent {
+	public:
 		IGLView(const id_t entityID) : SpatialComponent(entityID) {}
 
 		Frustum CameraFrustum;
@@ -71,7 +72,9 @@ namespace Sigma{
 				return view;
 		}
 
-		virtual const glm::mat4 GetViewMatrix(ViewSelection, float ipd = 0.0f) = 0;
+		virtual const glm::mat4 GetViewMatrix(ViewSelection, float ipd = 0.0f) {
+			return GetViewMatrix();
+		}
 
 		/*
 		 * /brief Extracts frustum planes from a matrix

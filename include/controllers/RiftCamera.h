@@ -1,40 +1,33 @@
 #pragma once
-#ifndef RIFTCAM_H
-#define RIFTCAM_H
 
-#include "controllers/FPSCamera.h"
+#include "systems/IGLView.h"
 #include <OVR.h>
 
 namespace Sigma {
-	namespace event {
-		namespace handler {
-			class RiftCamera : public FPSCamera {
-			public:
-				SET_COMPONENT_TYPENAME("RIFT_CAMERA");
+	class RiftCamera : public IGLView {
+	public:
+		SET_COMPONENT_TYPENAME("RIFT_CAMERA");
 				
-				RiftCamera(int entityID);
+		RiftCamera(int entityID);
 
-				/**
-				 * \brief Updates and returns the view matrix.
-				 *
-				 * \return const glm::mat4 The current view matrix.
-				 */
-				const glm::mat4 GetViewMatrix();
-				const glm::mat4 GetViewMatrix(ViewSelection, float ipd = 0.0f);
+		/**
+			* \brief Updates and returns the view matrix.
+			*
+			* \return const glm::mat4 The current view matrix.
+			*/
+		const glm::mat4 GetViewMatrix();
+		const glm::mat4 GetViewMatrix(ViewSelection, float ipd = 0.0f);
 
-				bool SetHMD(OVR::HMDDevice *);
+		bool SetHMD(OVR::HMDDevice *);
 
-				const OVR::HMDInfo& GetHMDInfo() { return ovrInfo; }
+		const OVR::HMDInfo& GetHMDInfo() { return ovrInfo; }
 
-				bool ClearHMD();
-			private:
-				OVR::HMDDevice * ovrHMD;
-				OVR::HMDInfo ovrInfo;
-				OVR::SensorDevice * ovrSensor;
-				OVR::SensorFusion ovrSF;
-			};
-		}
-	}
-} // namespace Sigma::event::handler
+		bool ClearHMD();
+	private:
+		OVR::HMDDevice * ovrHMD;
+		OVR::HMDInfo ovrInfo;
+		OVR::SensorDevice * ovrSensor;
+		OVR::SensorFusion ovrSF;
+	};
+} // namespace Sigma
 
-#endif // RIFTCAM_H

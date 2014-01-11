@@ -62,12 +62,9 @@ namespace Sigma{
 
 	std::map<std::string, Sigma::resource::GLTexture> OpenGLSystem::textures;
 
-/*<<<<<<< HEAD
 	OpenGLSystem::OpenGLSystem() : windowWidth(1024), windowHeight(768), deltaAccumulator(0.0),
-		framerate(60.0f), viewMode(""), renderMode(GLS_NONE) {}
-=======*/
-	OpenGLSystem::OpenGLSystem() : windowWidth(1024), windowHeight(768), deltaAccumulator(0.0),
-		framerate(60.0f), pointQuad(1000), ambientQuad(1001), spotQuad(1002) {}
+		framerate(60.0f), renderMode(GLS_NONE),
+		pointQuad(1000), ambientQuad(1001), spotQuad(1002) {}
 
 
 	std::map<std::string, Sigma::IFactory::FactoryFunction> OpenGLSystem::getFactoryFunctions() {
@@ -78,7 +75,7 @@ namespace Sigma{
 		retval["GLIcoSphere"] = std::bind(&OpenGLSystem::createGLIcoSphere,this,_1,_2);
 		retval["GLCubeSphere"] = std::bind(&OpenGLSystem::createGLCubeSphere,this,_1,_2);
 		retval["GLMesh"] = std::bind(&OpenGLSystem::createGLMesh,this,_1,_2);
-		retval["RiftCamera"] = std::bind(&OpenGLSystem::createGLView,this,_1,_2);
+//		retval["RiftCamera"] = std::bind(&OpenGLSystem::createGLView,this,_1,_2);
 		retval["FPSCamera"] = std::bind(&OpenGLSystem::createGLView,this,_1,_2);
 		retval["GLSixDOFView"] = std::bind(&OpenGLSystem::createGLView,this,_1,_2);
 		retval["PointLight"] = std::bind(&OpenGLSystem::createPointLight,this,_1,_2);
@@ -90,9 +87,9 @@ namespace Sigma{
 	}
 
 	IComponent* OpenGLSystem::createGLView(const id_t entityID, const std::vector<Property> &properties) {
-		this->views.push_back(new IGLView(entityID));
 
 		float x=0.0f, y=0.0f, z=0.0f, rx=0.0f, ry=0.0f, rz=0.0f;
+		bool riftview = false;
 
 		for (auto propitr = properties.begin(); propitr != properties.end(); ++propitr) {
 			const Property*  p = &(*propitr);
@@ -121,14 +118,26 @@ namespace Sigma{
 				rz = p->Get<float>();
 				continue;
 			}
+			else if (p->GetName() == "riftview") {
+				riftview = p->Get<bool>();
+				continue;
+			}
 		}
+		IGLView * newview;
+		if(riftview) {
+			newview = (IGLView*) new RiftCamera(entityID);
+		}
+		else {
+			newview = new IGLView(entityID);
+		}
+		this->views.push_back(newview);
+		
+		newview->Transform()->TranslateTo(x,y,z);
+		newview->Transform()->Rotate(rx,ry,rz);
 
-		this->views[this->views.size() - 1]->Transform()->TranslateTo(x,y,z);
-		this->views[this->views.size() - 1]->Transform()->Rotate(rx,ry,rz);
+		this->addComponent(entityID, newview);
 
-		this->addComponent(entityID, this->views[this->views.size() - 1]);
-
-		return this->views[this->views.size() - 1];
+		return newview;
 	}
 
 	IComponent* OpenGLSystem::createGLSprite(const id_t entityID, const std::vector<Property> &properties) {
@@ -854,6 +863,11 @@ namespace Sigma{
 
 			glm::vec3 viewPosition;
 			glm::mat4 viewProjInv;
+			glm::mat4 viewMatrix;
+			glm::mat4 viewFixMatrix;
+			glm::mat4 viewInfMatrix;
+			glm::mat4 viewProj;
+			glm::mat4 ProjMatrix;
 /*<<<<<<< HEAD
 			if(renderMode != GLS_NONE && this->renderTargets.size() > 0) {
 				// Bind the primary render target
@@ -861,11 +875,6 @@ namespace Sigma{
 			}
 
 			//glm::vec3 viewPosition;
-			glm::mat4 viewMatrix;
-			glm::mat4 viewFixMatrix;
-			glm::mat4 viewInfMatrix;
-			glm::mat4 viewProj;
-			glm::mat4 ProjMatrix;
 			
 			int looprender;
 			int renderstage;
@@ -920,7 +929,6 @@ namespace Sigma{
 =======*/
 
 			// Setup the view matrix and position variables
-			glm::mat4 viewMatrix;
 			if (this->views.size() > 0) {
 				viewMatrix = this->views[this->views.size() - 1]->GetViewMatrix();
 				viewPosition = this->views[this->views.size() - 1]->Transform()->GetPosition();
@@ -934,7 +942,6 @@ namespace Sigma{
 				}
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
 
-/*<<<<<<< HEAD
 				if (this->views.size() > 0) {
 					viewInfMatrix = this->views[this->views.size() - 1]->GetViewMatrix();
 					//viewPosition = this->views[this->views.size() - 1]->Transform.GetPosition();
@@ -943,9 +950,9 @@ namespace Sigma{
 				viewProj *= this->ProjectionMatrix;
 				ProjMatrix= this->ProjectionMatrix;
 			}
-=======*/
+//=======*/
 			// Setup the projection matrix
-			glm::mat4 viewProj = glm::mul(this->ProjectionMatrix, viewMatrix);
+			viewProj = glm::mul(this->ProjectionMatrix, viewMatrix);
 
 			viewProjInv = glm::inverse(viewProj);
 
@@ -1204,7 +1211,7 @@ namespace Sigma{
 			// Remove blending
 			glDisable(GL_BLEND);
 
-			} // for renderstage ... avoid diffs
+//			} // for renderstage ... avoid diffs
 
 			// Unbind frame buffer
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
