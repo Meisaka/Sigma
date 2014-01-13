@@ -203,10 +203,20 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 if(BUILD_STATIC_Sigma)
+	
+	# Add Trillek Virtual computer lib
+	set(BUILD_TOOLS_TR3200 OFF CACHE INTERNAL "") 
+	set(BUILD_TESTS_TR3200 OFF CACHE INTERNAL "") 
+	set(BUILD_STATIC_TR3200 ON CACHE INTERNAL "") 
+  ADD_SUBDIRECTORY(vm)
+	set(Sigma_ALL_LIBS ${Sigma_ALL_LIBS} TR3200)
+	set(Sigma_ALL_INCLUDES ${Sigma_ALL_INCLUDES} ${TR3200_INCLUDE_DIRS})
+
 	add_library(libSigmas STATIC
 		${Sigma_ALL_SOURCE}
 		${Sigma_ALL_INCLUDES}
 		)
+	
 	# Link the Sigma lib to all required external libraries
 	TARGET_LINK_LIBRARIES(libSigmas ${Sigma_ALL_LIBS})
 	if(WIN32)
@@ -218,9 +228,19 @@ if(BUILD_STATIC_Sigma)
 		OUTPUT_NAME Sigma
 		)
 	endif(WIN32)
+	
 endif(BUILD_STATIC_Sigma)
 
 if(BUILD_SHARED_Sigma)
+
+	# Add Trillek Virtual computer lib
+	set(BUILD_TOOLS_TR3200 OFF CACHE INTERNAL "") 
+	set(BUILD_TESTS_TR3200 OFF CACHE INTERNAL "") 
+	set(BUILD_STATIC_TR3200 OFF CACHE INTERNAL "") 
+  ADD_SUBDIRECTORY(vm)
+	set(Sigma_ALL_LIBS ${Sigma_ALL_LIBS} TR3200)
+	set(Sigma_ALL_INCLUDES ${Sigma_ALL_INCLUDES} ${TR3200_INCLUDE_DIRS})
+
 	add_library(libSigma SHARED
 		${Sigma_ALL_SOURCE}
 		${Sigma_ALL_INCLUDES}
@@ -230,6 +250,8 @@ if(BUILD_SHARED_Sigma)
 	set_target_properties(libSigma PROPERTIES
 		OUTPUT_NAME Sigma
 		)
+
+
 endif(BUILD_SHARED_Sigma)
 
 if(BUILD_EXE_Sigma)
