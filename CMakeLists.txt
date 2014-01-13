@@ -210,7 +210,8 @@ if(BUILD_STATIC_Sigma)
 	set(BUILD_STATIC_TR3200 ON CACHE INTERNAL "") 
   ADD_SUBDIRECTORY(vm)
 	set(Sigma_ALL_LIBS ${Sigma_ALL_LIBS} TR3200)
-	set(Sigma_ALL_INCLUDES ${Sigma_ALL_INCLUDES} ${TR3200_INCLUDE_DIRS})
+	FILE(GLOB TR3200_INCLUDES "vm/include/*.h" "vm/include/*.hpp")
+	set(Sigma_ALL_INCLUDES ${Sigma_ALL_INCLUDES} ${TR3200_INCLUDES})
 
 	add_library(libSigmas STATIC
 		${Sigma_ALL_SOURCE}
@@ -239,7 +240,8 @@ if(BUILD_SHARED_Sigma)
 	set(BUILD_STATIC_TR3200 OFF CACHE INTERNAL "") 
   ADD_SUBDIRECTORY(vm)
 	set(Sigma_ALL_LIBS ${Sigma_ALL_LIBS} TR3200)
-	set(Sigma_ALL_INCLUDES ${Sigma_ALL_INCLUDES} ${TR3200_INCLUDE_DIRS})
+	FILE(GLOB TR3200_INCLUDES "vm/include/*.h" "vm/include/*.hpp")
+	set(Sigma_ALL_INCLUDES ${Sigma_ALL_INCLUDES} ${TR3200_INCLUDES})
 
 	add_library(libSigma SHARED
 		${Sigma_ALL_SOURCE}
