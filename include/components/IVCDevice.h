@@ -4,21 +4,26 @@
 #define _IVC_DEVICE_COMPONENT_H_ 1
 
 #include "vm/include/VM.hpp"
+
 #include "../IComponent.h"
+#include "resources/GLTexture.h"
+#include "systems/OpenGLSystem.h"
 #include "Sigma.h"
 
 namespace Sigma {
 
-	class IVCDevice : public IComponent {
+	class IVC_Device : public IComponent {
 	public:
 
-		IVCDevice (const id_t id = 0) : IComponent(id) {
+		IVC_Device (const id_t id = 0) : IComponent(id) {
 		}
 
-		virtual ~IVCDevice () {
+		virtual ~IVC_Device () {
 		}
 
 		SET_COMPONENT_TYPENAME("VCDevice");
+
+		// Jumpers Get/Setters
 
 		void SetJmp1 (vm::dword_t val) {
 			jmp1 = val;
@@ -40,6 +45,30 @@ namespace Sigma {
 		vm::dword_t jmp1;
 		vm::dword_t jmp2;
 	};
+
+	/**
+	 * CDA Device component
+	 */
+	class CDADevice : public IVC_Device {
+	public:
+
+		CDADevice (const id_t id = 0) : IVC_Device(id), texture(nullptr) {
+		}
+
+		virtual ~CDADevice () {
+		}
+
+		SET_COMPONENT_TYPENAME("CDADevice");
+
+		void SetTexture(Sigma::resource::GLTexture* texture) {
+			this->texture = texture;
+    }
+
+	private:
+		Sigma::resource::GLTexture* texture;
+
+	};
+
 
 } // End of namespace Sigma
 

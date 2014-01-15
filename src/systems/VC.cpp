@@ -28,7 +28,9 @@ namespace Sigma {
 	}
 
 	DLL_EXPORT IComponent* VCSystem::createCDADevice(const id_t entityID, const std::vector<Property> &properties) {
+		// Tmp vars
 		vm::dword_t jmp1 = 0, jmp2 = 0;
+		std::string textureName = "";
 
 		for (auto propitr = properties.begin(); propitr != properties.end(); ++propitr) {
 			const Property* p = &(*propitr);
@@ -39,12 +41,23 @@ namespace Sigma {
 			else if (p->GetName() == "jmp2") {
 				jmp2 = p->Get<vm::dword_t>();
 			}
+			else if (p->GetName() == "textureName") {
+				textureName = p->Get<std::string>();
+			}
 		}
 
 
-		IVCDevice* dev = new IVCDevice(entityID);
+		CDADevice* dev = new CDADevice(entityID);
 		dev->SetJmp1(jmp1);
 		dev->SetJmp2(jmp2);
+
+		Sigma::resource::GLTexture texture;
+		Sigma::OpenGLSystem::textures[textureName] = texture;
+		Sigma::OpenGLSystem::textures[textureName].Format(GL_RGBA);
+		Sigma::OpenGLSystem::textures[textureName].AutoGenMipMaps(false);
+		Sigma::OpenGLSystem::textures[textureName].MinFilter(GL_LINEAR);
+		Sigma::OpenGLSystem::textures[textureName].GenerateGLTexture(320,240);
+		dev->SetTexture(&Sigma::OpenGLSystem::textures[textureName]);
 
 		return dev;
 	}

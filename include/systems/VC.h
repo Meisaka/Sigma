@@ -13,7 +13,7 @@
 namespace Sigma {
 
 	class VCSystem : public IFactory, public ISystem<IComponent> {
-
+	public:
 		DLL_EXPORT VCSystem ();
 		DLL_EXPORT virtual ~VCSystem ();
 

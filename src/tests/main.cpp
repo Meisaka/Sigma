@@ -13,12 +13,15 @@
 #include "OS.h"
 #include "components/SpotLight.h"
 
+#include "systems/VC.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #endif
 
 int main(int argCount, char **argValues) {
 	Sigma::WebGUISystem webguisys;
+	Sigma::VCSystem vcsys;
 
 	CefRefPtr<Sigma::WebGUISystem> app(&webguisys);
 #ifdef _WIN32
@@ -43,6 +46,7 @@ int main(int argCount, char **argValues) {
 	factory.register_Factory(alsys);
 	factory.register_Factory(bphys);
 	factory.register_Factory(webguisys);
+	factory.register_Factory(vcsys);
 
 	if (!glfwos.InitializeWindow(1024, 768, "Sigma GLFW Test Window")) {
 		std::cerr << "Failed creating the window or context." << std::endl;
