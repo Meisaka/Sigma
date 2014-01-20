@@ -10,6 +10,8 @@
 #include "components/IVCDevice.h"
 #include "Sigma.h"
 
+#include <unordered_map>
+
 namespace Sigma {
 
 	class VCSystem : public IFactory, public ISystem<IComponent> {
@@ -27,7 +29,7 @@ namespace Sigma {
 		 * \brief Updates every Virtual Computers runin in the system
 		 * \return true if any audio processing was performed
 		 */
-		DLL_EXPORT bool Update();
+		DLL_EXPORT bool Update(const double delta);
 
 		/**
 		 * \brief Returns the list of Factory functions and types they create
@@ -37,7 +39,15 @@ namespace Sigma {
 		 */
 		std::map<std::string,FactoryFunction> getFactoryFunctions();
 	
+		DLL_EXPORT IComponent* createVCMotherBoard(const id_t entityID, const std::vector<Property> &properties);
+		
 		DLL_EXPORT IComponent* createCDADevice(const id_t entityID, const std::vector<Property> &properties);
+
+		DLL_EXPORT IComponent* createGKeyboardDevice(const id_t entityID, const std::vector<Property> &properties);
+	
+	private:
+		std::unordered_map<id_t, vm::VirtualComputer<vm::cpu::TR3200>*> vms;	/// Container of VMs
+
 
 	};
 

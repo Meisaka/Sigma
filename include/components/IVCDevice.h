@@ -69,6 +69,24 @@ namespace Sigma {
 
 	};
 
+	/**
+	 * Keyboard Device component
+	 */
+	class GKeyboardDevice : public IVC_Device {
+	public:
+
+		GKeyboardDevice (const id_t id = 0) : IVC_Device(id) {
+		}
+
+		virtual ~GKeyboardDevice () {
+		}
+
+		SET_COMPONENT_TYPENAME("GKeyboardDevice");
+
+	private:
+
+	};
+
 
 } // End of namespace Sigma
 
