@@ -102,6 +102,13 @@ int main(int argCount, char **argValues) {
 	alsys.Start();
 	alsys.test(); // try sound
 	
+	/////////////////
+	// Setup VMs //
+	/////////////////
+
+	std::cout << "Initializing Virtual Computer system." << std::endl;
+	vcsys.Start();
+	
 	////////////////
 	// Load scene //
 	////////////////
@@ -242,6 +249,9 @@ int main(int argCount, char **argValues) {
 		webguisys.Update(deltaSec);
 
 		alsys.Update();
+
+		// Update Virtual Computers
+		vcsys.Update(deltaSec);
 
 		// Update the renderer and present
 		if (glsys.Update(deltaSec)) {

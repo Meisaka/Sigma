@@ -20,6 +20,17 @@ namespace Sigma {
 
 		SET_COMPONENT_TYPENAME("VCMotherBoard");
 
+		void SetROMFileName(const std::string& filename) {
+			this->romfile = filename;
+    }
+
+		const std::string& GetROMFileName() {
+			return this->romfile;
+    }
+
+	private:
+		std::string romfile;
+	
 	};
 
 } // End of namespace Sigma

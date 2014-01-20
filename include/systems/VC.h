@@ -47,6 +47,8 @@ namespace Sigma {
 	
 	private:
 		std::unordered_map<id_t, vm::VirtualComputer<vm::cpu::TR3200>*> vms;	/// Container of VMs
+		// TODO Change this
+		std::unordered_map<id_t, vm::cda::CDA*> cdas;	/// Container of graphic cardss
 
 
 	};

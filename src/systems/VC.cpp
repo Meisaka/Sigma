@@ -8,10 +8,19 @@
 
 namespace Sigma {
 
-	DLL_EXPORT VCSystem::VCSystem () : vms() {
+	DLL_EXPORT VCSystem::VCSystem () : vms(), cdas() {
 	}
 
 	DLL_EXPORT VCSystem::~VCSystem () {
+		for (auto it = vms.begin() ; it != vms.end() ; ++it) {
+			delete it->second;
+			it->second = nullptr;
+		}
+
+		for (auto it = cdas.begin() ; it != cdas.end() ; ++it) {
+			delete it->second;
+			it->second = nullptr;
+		}
 	}
 
 	DLL_EXPORT bool VCSystem::Start () {
@@ -21,6 +30,9 @@ namespace Sigma {
 	}
 
 	DLL_EXPORT bool VCSystem::Update (const double delta) {
+		for (auto it = vms.begin() ; it != vms.end() ; ++it) {
+			it->second->Tick(1000); // TODO Calc ticks in function of delta
+		}
 		return true;
 	}
 
@@ -37,10 +49,34 @@ namespace Sigma {
 	}
 
 	DLL_EXPORT IComponent* VCSystem::createVCMotherBoard(const id_t entityID, const std::vector<Property> &properties) {
+		// Tmp vars
+		std::string romfile = "";
+		
+		for (auto propitr = properties.begin(); propitr != properties.end(); ++propitr) {
+			const Property* p = &(*propitr);
+			
+			if (p->GetName() == "romfile") {
+				romfile = p->Get<std::string>();
+			}
+		}
 
 		VCMotherBoard* mbo = new VCMotherBoard(entityID);
+		mbo->SetROMFileName(romfile);
 		
 		this->addComponent(entityID, mbo);
+		vms.emplace(entityID, new vm::VirtualComputer<vm::cpu::TR3200>() );
+
+		auto vm = vms[entityID];
+		// Load ROM
+		auto bytes = vm::aux::LoadROM(mbo->GetROMFileName(), *vm );
+		std::cerr << "Loaded ROM File : " << mbo->GetROMFileName() << " With size : " << bytes << " bytes\n";
+
+		// Load Devices (TODO: think how and were is stored every device)
+		auto cdadev = (CDADevice*) this->getComponent(entityID, "CDADevice");
+		if (cdadev != nullptr) {
+			cdas.emplace(entityID, new vm::cda::CDA());
+			vm->AddDevice(0, *(cdas[entityID]));
+		}
 
 		return mbo;
 	}
