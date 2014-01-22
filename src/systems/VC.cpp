@@ -129,7 +129,8 @@ namespace Sigma {
 		Sigma::OpenGLSystem::textures[textureName] = texture;
 		Sigma::OpenGLSystem::textures[textureName].Format(GL_RGBA);
 		Sigma::OpenGLSystem::textures[textureName].AutoGenMipMaps(false);
-		Sigma::OpenGLSystem::textures[textureName].MinFilter(GL_NEAREST);
+		Sigma::OpenGLSystem::textures[textureName].MinFilter(GL_LINEAR);
+		Sigma::OpenGLSystem::textures[textureName].MagFilter(GL_NEAREST);
 		Sigma::OpenGLSystem::textures[textureName].GenerateGLTexture(320,240);
 		dev->SetTexture(&Sigma::OpenGLSystem::textures[textureName]);
 
