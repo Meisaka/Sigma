@@ -8,7 +8,8 @@
 
 namespace Sigma {
 
-	DLL_EXPORT VCSystem::VCSystem () : vms(), cdas() {
+	DLL_EXPORT VCSystem::VCSystem () : vms(), cdas(), vsync_delta(0) {
+
 	}
 
 	DLL_EXPORT VCSystem::~VCSystem () {
@@ -30,9 +31,26 @@ namespace Sigma {
 	}
 
 	DLL_EXPORT bool VCSystem::Update (const double delta) {
+		// Delta is in seconds
 		for (auto it = vms.begin() ; it != vms.end() ; ++it) {
-			it->second->Tick(1000); // TODO Calc ticks in function of delta
+			auto vm = it->second;
+      unsigned ticks = (vm->Clock() * delta) + 0.5f; // Rounding bug in VS
+			vm->Tick(ticks, delta * 1000.0f ); // TODO Calc ticks in function of delta
 		}
+
+		if (vsync_delta > 0.05)  {
+			for (auto it = cdas.begin() ; it != cdas.end() ; ++it) {
+        it->second->ToRGBATexture(this->tbuffer); // Generate a texture
+				auto cdadev = (CDADevice*) this->getComponent(it->first, "CDADevice");
+				cdadev->GetTexture()->UpdateDataFromMemory((unsigned char*) this->tbuffer);	
+				
+				it->second->VSync();
+			}
+
+			vsync_delta -= 0.05;
+		}
+
+		vsync_delta += delta;
 		return true;
 	}
 
@@ -78,6 +96,7 @@ namespace Sigma {
 			vm->AddDevice(0, *(cdas[entityID]));
 		}
 
+		vm->Reset();
 		return mbo;
 	}
 
@@ -110,7 +129,7 @@ namespace Sigma {
 		Sigma::OpenGLSystem::textures[textureName] = texture;
 		Sigma::OpenGLSystem::textures[textureName].Format(GL_RGBA);
 		Sigma::OpenGLSystem::textures[textureName].AutoGenMipMaps(false);
-		Sigma::OpenGLSystem::textures[textureName].MinFilter(GL_LINEAR);
+		Sigma::OpenGLSystem::textures[textureName].MinFilter(GL_NEAREST);
 		Sigma::OpenGLSystem::textures[textureName].GenerateGLTexture(320,240);
 		dev->SetTexture(&Sigma::OpenGLSystem::textures[textureName]);
 
