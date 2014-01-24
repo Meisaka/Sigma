@@ -182,6 +182,11 @@ int main(int argCount, char **argValues) {
 	
 	// Sync bullet physics object with gl camera
 
+	// Add handlers of every virtual computer
+	for (auto it = vcsys.vkeys.begin() ; it != vcsys.vkeys.end() ; ++it) {
+		glfwos.RegisterKeyboardEventHandler(it->second);
+	}
+
 	///////////////////
 	// Configure GUI //
 	///////////////////

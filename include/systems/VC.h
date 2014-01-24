@@ -6,8 +6,10 @@
 
 #include "IFactory.h"
 #include "ISystem.h"
+#include "systems/KeyboardInputSystem.h"
 #include "components/VCMotherboard.h"
 #include "components/IVCDevice.h"
+#include "controllers/VirtualKeyboard.h"
 #include "Sigma.h"
 
 #include <unordered_map>
@@ -49,10 +51,14 @@ namespace Sigma {
 		std::unordered_map<id_t, vm::VirtualComputer<vm::cpu::TR3200>*> vms;	/// Container of VMs
 		// TODO Really... Change this
 		std::unordered_map<id_t, vm::cda::CDA*> cdas;	/// Container of graphic cardss
+		
+		std::unordered_map<id_t, vm::keyboard::GKeyboard*> gkeys;	/// Container of virtual keyboards
 
 		double vsync_delta;
 		vm::dword_t tbuffer[320*240];		/// Buffer to store the output screen
 
+	public:
+		std::unordered_map<id_t, Sigma::event::handler::VirtualKeyboard*> vkeys;	/// Container of virtual keyboards
 
 	};
 

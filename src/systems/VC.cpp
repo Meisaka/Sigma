@@ -5,10 +5,9 @@
 #include "Property.h"
 #include "IComponent.h"
 
-
 namespace Sigma {
 
-	DLL_EXPORT VCSystem::VCSystem () : vms(), cdas(), vsync_delta(0) {
+	DLL_EXPORT VCSystem::VCSystem () : vms(), cdas(), gkeys(), vsync_delta(0), vkeys() {
 
 	}
 
@@ -19,6 +18,16 @@ namespace Sigma {
 		}
 
 		for (auto it = cdas.begin() ; it != cdas.end() ; ++it) {
+			delete it->second;
+			it->second = nullptr;
+		}
+
+		for (auto it = gkeys.begin() ; it != gkeys.end() ; ++it) {
+			delete it->second;
+			it->second = nullptr;
+		}
+		
+		for (auto it = vkeys.begin() ; it != vkeys.end() ; ++it) {
 			delete it->second;
 			it->second = nullptr;
 		}
@@ -96,6 +105,17 @@ namespace Sigma {
 			vm->AddDevice(0, *(cdas[entityID]));
 		}
 
+		auto gkeydev = (GKeyboardDevice*) this->getComponent(entityID, "GKeyboardDevice");
+		if (gkeydev != nullptr) {
+			gkeys.emplace(entityID, new vm::keyboard::GKeyboard);
+			auto gkey = gkeys[entityID];
+			vm->AddDevice(5, *gkey);
+
+			vkeys.emplace(entityID, new Sigma::event::handler::VirtualKeyboard);
+			vkeys[entityID]->SetKeyboardDevice(gkey);
+			
+		}
+
 		vm->Reset();
 		return mbo;
 	}
@@ -153,7 +173,6 @@ namespace Sigma {
 				jmp2 = p->Get<vm::dword_t>();
 			}
 		}
-
 
 		GKeyboardDevice* dev = new GKeyboardDevice(entityID);
 		dev->SetJmp1(jmp1);
