@@ -91,9 +91,9 @@ namespace Sigma {
 		mbo->SetROMFileName(romfile);
 		
 		this->addComponent(entityID, mbo);
-		vms.emplace(entityID, new vm::VirtualComputer<vm::cpu::TR3200>() );
-
-		auto vm = vms[entityID];
+		auto vm = new vm::VirtualComputer<vm::cpu::TR3200>();
+		vms[entityID] = vm;
+		
 		// Load ROM
 		auto bytes = vm::aux::LoadROM(mbo->GetROMFileName(), *vm );
 		std::cerr << "Loaded ROM File : " << mbo->GetROMFileName() << " With size : " << bytes << " bytes\n";
@@ -101,18 +101,20 @@ namespace Sigma {
 		// Load Devices (TODO: think how and were is stored every device)
 		auto cdadev = (CDADevice*) this->getComponent(entityID, "CDADevice");
 		if (cdadev != nullptr) {
-			cdas.emplace(entityID, new vm::cda::CDA());
-			vm->AddDevice(0, *(cdas[entityID]));
+			auto cda = new vm::cda::CDA();
+			cdas[entityID] = cda;
+			vm->AddDevice(0, *cda);
 		}
 
 		auto gkeydev = (GKeyboardDevice*) this->getComponent(entityID, "GKeyboardDevice");
 		if (gkeydev != nullptr) {
-			gkeys.emplace(entityID, new vm::keyboard::GKeyboard);
-			auto gkey = gkeys[entityID];
+			auto gkey = new vm::keyboard::GKeyboard;
+			gkeys[entityID] = gkey;
 			vm->AddDevice(5, *gkey);
 
-			vkeys.emplace(entityID, new Sigma::event::handler::VirtualKeyboard);
-			vkeys[entityID]->SetKeyboardDevice(gkey);
+			auto vkey = new Sigma::event::handler::VirtualKeyboard;
+			vkeys[entityID] = vkey;
+			vkey->SetKeyboardDevice(gkey);
 			
 		}
 
