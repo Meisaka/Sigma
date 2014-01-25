@@ -319,6 +319,7 @@ int main(int argCount, char **argValues) {
 	// do a proper clean up
 	alsys.Shutdown();
 	//CefShutdown();
+	glfwos.Terminate();
 
 	return 0;
 }
