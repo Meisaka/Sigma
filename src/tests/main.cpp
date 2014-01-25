@@ -185,11 +185,6 @@ int main(int argCount, char **argValues) {
 	
 	// Sync bullet physics object with gl camera
 
-	// Add handlers of every virtual computer
-	for (auto it = vcsys.vkeys.begin() ; it != vcsys.vkeys.end() ; ++it) {
-		glfwos.RegisterKeyboardEventHandler(it->second);
-	}
-
 	///////////////////
 	// Configure GUI //
 	///////////////////
@@ -203,6 +198,7 @@ int main(int argCount, char **argValues) {
 	glfwos.GetDeltaTime();
 
 	Sigma::ALSound *als;
+	Sigma::ALSound *keybsound;
 	bool soundflag = false, soundrunning = false;
 	{
 		als = (Sigma::ALSound *)alsys.getComponent(200, Sigma::ALSound::getStaticComponentTypeName());
@@ -217,9 +213,15 @@ int main(int argCount, char **argValues) {
 		if(als) {
 			als->Play(Sigma::PLAYBACK_LOOP);
 		}
-
+		keybsound = (Sigma::ALSound *)alsys.getComponent(204, Sigma::ALSound::getStaticComponentTypeName());
 		// This one must be last
 		als = (Sigma::ALSound *)alsys.getComponent(203, Sigma::ALSound::getStaticComponentTypeName());
+	}
+
+	// Add handlers of every virtual computer
+	for (auto it = vcsys.vkeys.begin() ; it != vcsys.vkeys.end() ; ++it) {
+		it->second->actionsound = keybsound;
+		glfwos.RegisterKeyboardEventHandler(it->second);
 	}
 
 	enum FlashlightState {
@@ -235,30 +237,32 @@ int main(int argCount, char **argValues) {
 		// Get time in ms, store it in seconds too
 		double deltaSec = glfwos.GetDeltaTime();
 
-		// Process input
-		if(glfwos.CheckKeyState(Sigma::event::KS_DOWN, GLFW_KEY_F)) {
-			if(fs==FL_OFF) {
-				fs=FL_TURNING_ON;
-			} else if (fs==FL_ON) {
-				fs=FL_TURNING_OFF;
+		if(!(glfwos.HasKeyboardFocusLock())) {
+			// Process input
+			if(glfwos.CheckKeyState(Sigma::event::KS_DOWN, GLFW_KEY_F)) {
+				if(fs==FL_OFF) {
+					fs=FL_TURNING_ON;
+				} else if (fs==FL_ON) {
+					fs=FL_TURNING_OFF;
+				}
 			}
-		}
 
-		if(glfwos.CheckKeyState(Sigma::event::KS_UP, GLFW_KEY_F)) {
-			if(fs==FL_TURNING_ON) {
-				// Enable flashlight
-				Sigma::SpotLight *spotlight = static_cast<Sigma::SpotLight *>(glsys.getComponent(151, Sigma::SpotLight::getStaticComponentTypeName()));
-				spotlight->enabled = true;
-				// Rotate flashlight up
-				// Enable spotlight
-				fs=FL_ON;
-			} else if (fs==FL_TURNING_OFF) {
-				// Disable spotlight
-				Sigma::SpotLight *spotlight = static_cast<Sigma::SpotLight *>(glsys.getComponent(151, Sigma::SpotLight::getStaticComponentTypeName()));
-				spotlight->enabled = false;
-				// Rotate flashlight down
-				// Disable flashlight
-				fs=FL_OFF;
+			if(glfwos.CheckKeyState(Sigma::event::KS_UP, GLFW_KEY_F)) {
+				if(fs==FL_TURNING_ON) {
+					// Enable flashlight
+					Sigma::SpotLight *spotlight = static_cast<Sigma::SpotLight *>(glsys.getComponent(151, Sigma::SpotLight::getStaticComponentTypeName()));
+					spotlight->enabled = true;
+					// Rotate flashlight up
+					// Enable spotlight
+					fs=FL_ON;
+				} else if (fs==FL_TURNING_OFF) {
+					// Disable spotlight
+					Sigma::SpotLight *spotlight = static_cast<Sigma::SpotLight *>(glsys.getComponent(151, Sigma::SpotLight::getStaticComponentTypeName()));
+					spotlight->enabled = false;
+					// Rotate flashlight down
+					// Disable flashlight
+					fs=FL_OFF;
+				}
 			}
 		}
 

@@ -8,7 +8,7 @@ namespace Sigma {
 	namespace event {
 		namespace handler {
 
-			VirtualKeyboard::VirtualKeyboard () : hasFocus(false), gkeyboard(nullptr) {
+			VirtualKeyboard::VirtualKeyboard () : hasFocus(false), gkeyboard(nullptr), actionsound(nullptr) {
 				// Register listened keys.
 				for (unsigned i = 0; i <= 265 ; i++) { 
 					this->keys.push_back(i);
@@ -33,10 +33,17 @@ namespace Sigma {
 					return;
 				}
 
-				if (this->gkeyboard != nullptr && hasFocus) {
+				if (this->gkeyboard != nullptr && (hasFocus & 1) && key != GLFW_KEY_F3) {
 					auto keycode = vm::aux::GLFWKeyToTR3200(key);
 					bool kdown = state == KEY_STATE::KS_DOWN;
-
+					if(actionsound) {
+						if(kdown) {
+							actionsound->Play(PLAYBACK_NORMAL);
+						}
+						else {
+							actionsound->Stop();
+						}
+					}
 					this->gkeyboard->PushKeyEvent(kdown, keycode);
 				}
 			}

@@ -6,6 +6,7 @@
 #include "vm/include/VM.hpp"
 
 #include "systems/KeyboardInputSystem.h"
+#include "components/ALSound.h"
 #include "Sigma.h"
 
 namespace Sigma {
@@ -35,7 +36,8 @@ namespace Sigma {
 				 * \return void
 				 */
 				void LostKeyboardFocus();
-				
+
+				ALSound* actionsound;
 			private:
 				bool hasFocus;
 				vm::keyboard::GKeyboard* gkeyboard;
