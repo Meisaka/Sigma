@@ -62,11 +62,11 @@ namespace Sigma {
 
 		void SetTexture(Sigma::resource::GLTexture* texture) {
 			this->texture = texture;
-    }
+		}
 
 		Sigma::resource::GLTexture* GetTexture() {
 			return this->texture;
-    }
+		}
 
 	private:
 		Sigma::resource::GLTexture* texture;

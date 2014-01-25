@@ -24,6 +24,12 @@ namespace Sigma {
 			void VirtualKeyboard::KeyStateChange(const unsigned int key, const KEY_STATE state) {
 				if (key == GLFW_KEY_F3 && state != KEY_STATE::KS_DOWN) { // F3 togles the keyboard focus
 					this->hasFocus ^= 1;
+					if(this->hasFocus & 1) {
+						this->keyboardSystem->RequestFocusLock(this);
+					}
+					else {
+						this->keyboardSystem->ReleaseFocusLock(this);
+					}
 					return;
 				}
 
