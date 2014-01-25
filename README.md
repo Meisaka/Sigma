@@ -112,3 +112,36 @@ cmake .. -G Xcode
 ```
 
 You must change the current scheme to Sigma by clicking on the scheme popup menu and selecting Sigma.  You can also change the working directory used when Sigma is started by Xcode.  Select Edit Scheme from the scheme popup menu, switch to the Options tab, check the box next to Working Directory, and enter the path to the Sigma assets in the text field.
+
+Virtual Computer
+===
+
+To get a Virtual Computer in the monitor you need that **test.sc** have this :
+
+    @MonitorPannel
+    #32
+    &CDADevice
+    >jmp1=0i
+    >jmp2=0i
+    >textureName=monitors
+    
+    &GKeyboardDevice
+    >jmp1=0i
+    >jmp2=0i
+    
+    &VCMotherBoard
+    >romfile=type.asm.bins
+    
+    &GLMesh
+    >scale=0.1f
+    >z=1.2f
+    >x=1.7f
+    >ry=270.0f
+    >meshFile=vidstand/VidStand_out.objs
+    >shader=shaders/mesh_deferreds
+    >lightEnabled=0b
+
+Where you can change >romfile=type.asm.bins byt any other rom file.
+
+The Virtual Computer by default not grabs the keyboard. To allow to type to the Virtual Computer, press F3 to togglet it. 
+Waring : You can add more Virtual Computers but you must know that the keyboard grabbing is did for all, so, when you enable it with F3, all computer will get the same keyboard input.

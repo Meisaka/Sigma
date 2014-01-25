@@ -214,10 +214,21 @@ LINK_DIRECTORIES("${CMAKE_BINARY_DIR}/bin")
 LINK_DIRECTORIES("${EXECUTABLE_OUTPUT_PATH}")
 
 if(BUILD_STATIC_Sigma)
+	
+	# Add Trillek Virtual computer lib
+	set(BUILD_TOOLS_TR3200 OFF CACHE INTERNAL "") 
+	set(BUILD_TESTS_TR3200 OFF CACHE INTERNAL "") 
+	set(BUILD_STATIC_TR3200 ON CACHE INTERNAL "") 
+  ADD_SUBDIRECTORY(vm)
+	set(Sigma_ALL_LIBS ${Sigma_ALL_LIBS} TR3200)
+	FILE(GLOB TR3200_INCLUDES "vm/include/*.h" "vm/include/*.hpp")
+	set(Sigma_ALL_INCLUDES ${Sigma_ALL_INCLUDES} ${TR3200_INCLUDES})
+
 	add_library(libSigmas STATIC
 		${Sigma_ALL_SOURCE}
 		${Sigma_ALL_INCLUDES}
 		)
+	
 	# Link the Sigma lib to all required external libraries
 	TARGET_LINK_LIBRARIES(libSigmas ${Sigma_ALL_LIBS})
 	if(WIN32)
@@ -229,9 +240,20 @@ if(BUILD_STATIC_Sigma)
 		OUTPUT_NAME Sigma
 		)
 	endif(WIN32)
+	
 endif(BUILD_STATIC_Sigma)
 
 if(BUILD_SHARED_Sigma)
+
+	# Add Trillek Virtual computer lib
+	set(BUILD_TOOLS_TR3200 OFF CACHE INTERNAL "") 
+	set(BUILD_TESTS_TR3200 OFF CACHE INTERNAL "") 
+	set(BUILD_STATIC_TR3200 OFF CACHE INTERNAL "") 
+  ADD_SUBDIRECTORY(vm)
+	set(Sigma_ALL_LIBS ${Sigma_ALL_LIBS} TR3200)
+	FILE(GLOB TR3200_INCLUDES "vm/include/*.h" "vm/include/*.hpp")
+	set(Sigma_ALL_INCLUDES ${Sigma_ALL_INCLUDES} ${TR3200_INCLUDES})
+
 	add_library(libSigma SHARED
 		${Sigma_ALL_SOURCE}
 		${Sigma_ALL_INCLUDES}
@@ -241,6 +263,8 @@ if(BUILD_SHARED_Sigma)
 	set_target_properties(libSigma PROPERTIES
 		OUTPUT_NAME Sigma
 		)
+
+
 endif(BUILD_SHARED_Sigma)
 
 if(BUILD_EXE_Sigma)

@@ -13,12 +13,15 @@
 #include "OS.h"
 #include "components/SpotLight.h"
 
+#include "systems/VC.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #endif
 
 int main(int argCount, char **argValues) {
 	Sigma::WebGUISystem webguisys;
+	Sigma::VCSystem vcsys;
 
 	CefRefPtr<Sigma::WebGUISystem> app(&webguisys);
 #ifdef _WIN32
@@ -46,6 +49,7 @@ int main(int argCount, char **argValues) {
 	factory.register_Factory(alsys);
 	factory.register_Factory(bphys);
 	factory.register_Factory(webguisys);
+	factory.register_Factory(vcsys);
 
 	if (!glfwos.InitializeWindow(1024, 768, "Sigma GLFW Test Window")) {
 		std::cerr << "Failed creating the window or context." << std::endl;
@@ -100,6 +104,13 @@ int main(int argCount, char **argValues) {
 	std::cout << "Initializing OpenAL system." << std::endl;
 	alsys.Start();
 	alsys.test(); // try sound
+	
+	/////////////////
+	// Setup VMs //
+	/////////////////
+
+	std::cout << "Initializing Virtual Computer system." << std::endl;
+	vcsys.Start();
 	
 	////////////////
 	// Load scene //
@@ -174,6 +185,11 @@ int main(int argCount, char **argValues) {
 	
 	// Sync bullet physics object with gl camera
 
+	// Add handlers of every virtual computer
+	for (auto it = vcsys.vkeys.begin() ; it != vcsys.vkeys.end() ; ++it) {
+		glfwos.RegisterKeyboardEventHandler(it->second);
+	}
+
 	///////////////////
 	// Configure GUI //
 	///////////////////
@@ -245,6 +261,9 @@ int main(int argCount, char **argValues) {
 		bphys.Update(deltaSec);
 		webguisys.Update(deltaSec);
 
+
+		// Update Virtual Computers
+		vcsys.Update(deltaSec);
 
 		// Update the renderer and present
 		if (glsys.Update(deltaSec)) {
