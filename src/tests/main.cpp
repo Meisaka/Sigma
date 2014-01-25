@@ -199,6 +199,7 @@ int main(int argCount, char **argValues) {
 
 	Sigma::ALSound *als;
 	Sigma::ALSound *keybsound;
+	Sigma::ALSound *keybusound;
 	bool soundflag = false, soundrunning = false;
 	{
 		als = (Sigma::ALSound *)alsys.getComponent(200, Sigma::ALSound::getStaticComponentTypeName());
@@ -214,6 +215,7 @@ int main(int argCount, char **argValues) {
 			als->Play(Sigma::PLAYBACK_LOOP);
 		}
 		keybsound = (Sigma::ALSound *)alsys.getComponent(204, Sigma::ALSound::getStaticComponentTypeName());
+		keybusound = (Sigma::ALSound *)alsys.getComponent(205, Sigma::ALSound::getStaticComponentTypeName());
 		// This one must be last
 		als = (Sigma::ALSound *)alsys.getComponent(203, Sigma::ALSound::getStaticComponentTypeName());
 	}
@@ -221,6 +223,7 @@ int main(int argCount, char **argValues) {
 	// Add handlers of every virtual computer
 	for (auto it = vcsys.vkeys.begin() ; it != vcsys.vkeys.end() ; ++it) {
 		it->second->actionsound = keybsound;
+		it->second->reactionsound = keybusound;
 		glfwos.RegisterKeyboardEventHandler(it->second);
 	}
 

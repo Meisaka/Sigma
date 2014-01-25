@@ -29,6 +29,7 @@ namespace Sigma {
 				 * \return void
 				 */
 				DLL_EXPORT void KeyStateChange(const unsigned int key, const KEY_STATE state);
+				DLL_EXPORT void KeyStateChange(const unsigned int key, const KEY_STATE state, const KEY_STATE laststate);
 
 				/**
 				 * \brief Called when focus for this controller has been lost.
@@ -38,6 +39,8 @@ namespace Sigma {
 				void LostKeyboardFocus();
 
 				ALSound* actionsound;
+				ALSound* reactionsound;
+				vm::VirtualComputer<vm::cpu::TR3200>* vcvm;
 			private:
 				bool hasFocus;
 				vm::keyboard::GKeyboard* gkeyboard;

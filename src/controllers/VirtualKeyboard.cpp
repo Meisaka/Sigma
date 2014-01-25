@@ -19,9 +19,13 @@ namespace Sigma {
 				this->keys.push_back(345);
 				this->keys.push_back(346);
 				this->keys.push_back(GLFW_KEY_F3);
+				this->keys.push_back(GLFW_KEY_F4);
 			}
-			
+
 			void VirtualKeyboard::KeyStateChange(const unsigned int key, const KEY_STATE state) {
+				KeyStateChange(key, state, KEY_STATE::KS_UP);
+			}
+			void VirtualKeyboard::KeyStateChange(const unsigned int key, const KEY_STATE state, const KEY_STATE laststate) {
 				if (key == GLFW_KEY_F3 && state != KEY_STATE::KS_DOWN) { // F3 togles the keyboard focus
 					this->hasFocus ^= 1;
 					if(this->hasFocus & 1) {
@@ -37,14 +41,23 @@ namespace Sigma {
 					auto keycode = vm::aux::GLFWKeyToTR3200(key);
 					bool kdown = state == KEY_STATE::KS_DOWN;
 					if(actionsound) {
-						if(kdown) {
+						if(kdown && (laststate == KEY_STATE::KS_UP)) {
 							actionsound->Play(PLAYBACK_NORMAL);
 						}
-						else {
-							actionsound->Stop();
+					}
+					if(reactionsound) {
+						if(!kdown) {
+							reactionsound->Play(PLAYBACK_NORMAL);
 						}
 					}
-					this->gkeyboard->PushKeyEvent(kdown, keycode);
+					if(key == GLFW_KEY_F4) {
+						if(this->vcvm) {
+							this->vcvm->Reset();
+						}
+					}
+					else {
+						this->gkeyboard->PushKeyEvent(kdown, keycode);
+					}
 				}
 			}
 

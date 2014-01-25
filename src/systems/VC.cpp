@@ -115,7 +115,7 @@ namespace Sigma {
 			auto vkey = new Sigma::event::handler::VirtualKeyboard;
 			vkeys[entityID] = vkey;
 			vkey->SetKeyboardDevice(gkey);
-			
+			vkey->vcvm = vm;
 		}
 
 		vm->Reset();
