@@ -40,6 +40,7 @@ namespace Sigma {
 
 				ALSound* actionsound;
 				ALSound* reactionsound;
+				ALSound* spactionsound;
 				vm::VirtualComputer<vm::cpu::TR3200>* vcvm;
 			private:
 				bool hasFocus;

@@ -40,15 +40,18 @@ namespace Sigma {
 				if (this->gkeyboard != nullptr && (hasFocus & 1) && key != GLFW_KEY_F3) {
 					auto keycode = vm::aux::GLFWKeyToTR3200(key);
 					bool kdown = state == KEY_STATE::KS_DOWN;
-					if(actionsound) {
-						if(kdown && (laststate == KEY_STATE::KS_UP)) {
+					if(kdown && (laststate == KEY_STATE::KS_UP)) {
+						if(reactionsound && key == GLFW_KEY_ENTER) {
+							reactionsound->Play(PLAYBACK_NORMAL);
+						}
+						if(spactionsound && key == GLFW_KEY_SPACE) {
+							spactionsound->Play(PLAYBACK_NORMAL);
+						}
+						else if(actionsound) {
 							actionsound->Play(PLAYBACK_NORMAL);
 						}
 					}
-					if(reactionsound) {
-						if(!kdown) {
-							reactionsound->Play(PLAYBACK_NORMAL);
-						}
+					if(!kdown) {
 					}
 					if(key == GLFW_KEY_F4) {
 						if(this->vcvm) {
