@@ -109,6 +109,8 @@ IF (WIN32 AND NOT MINGW) # Windows
 	ENDIF (CMAKE_CL_64)
 ENDIF (WIN32 AND NOT MINGW)
 
+set(BUILD_LINK_CEF FALSE CACHE BOOL "Build with Chromium Embedded Framework (CEF)")
+
 # Find all the libraries except GLEW and platform specific.
 FIND_PACKAGE(OpenGL REQUIRED)
 FIND_PACKAGE(GLFW3 REQUIRED)
@@ -117,7 +119,11 @@ FIND_PACKAGE(OpenAL REQUIRED)
 FIND_PACKAGE(Bullet REQUIRED)
 FIND_PACKAGE(SOIL REQUIRED)
 FIND_PACKAGE(GLM REQUIRED)
+if(BUILD_LINK_CEF)
 FIND_PACKAGE(CEF REQUIRED)
+else(BUILD_LINK_CEF)
+add_definitions(-DNO_CEF)
+endif(BUILD_LINK_CEF)
 
 # Give these some dummy values and if the platform is LINUX or OSX they will be set accordingly.
 SET(X11_LIBRARIES "")
@@ -274,7 +280,7 @@ if(BUILD_EXE_Sigma)
 	FOREACH(TEST_CPP ${Sigma_SRC_TESTS_CPP})
 		GET_FILENAME_COMPONENT(TEST_NAME ${TEST_CPP} NAME_WE)
 		if(TEST_NAME STREQUAL "main")
-			SET(TEST_NAME "Sigma")
+			SET(TEST_NAME "Trillek_MS2_5")
 		endif(TEST_NAME STREQUAL "main")
 
 		MESSAGE(STATUS "Processing: ${TEST_NAME}")
