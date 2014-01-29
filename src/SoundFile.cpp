@@ -132,7 +132,7 @@ namespace Sigma {
 							bytec = opdata->pack.bytes;
 							if(!offs) {
 								if(vorbis_synthesis_idheader(&opdata->pack) == 1) {
-									LOG << "\nVorbis ";
+									LOG_DEBUG << "Vorbis";
 									dataformat = Vorbis;
 								}
 							}
@@ -490,7 +490,7 @@ namespace Sigma {
 				fh.read(fourcc.cvalue, 4); // read the id string
 				fh.seekg(0, std::ios::beg);
 				if(fourcc == FourCC('R','I','F','F')) {
-					LOG << "Loading Sound from WAV file: " << fn << '\n';
+					LOG << "Loading Sound from WAV file: " << fn;
 					LoadWAV(fh, sz);
 					ProcessMeta();
 				}
