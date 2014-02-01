@@ -150,6 +150,6 @@ namespace Log {
 #define LOG       Log::Print(Log::LogLevel::INFO)
 #define LOG_WARN  Log::Print(Log::LogLevel::WARN)
 #define LOG_ERROR Log::Print(Log::LogLevel::ERROR)
-
+#define LOG_DEBUG1 Log::Print(Log::LogLevel::DEBUG+1)
 
 #endif // __LOGGER_H_
