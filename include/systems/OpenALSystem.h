@@ -95,6 +95,8 @@ namespace Sigma {
 			std::weak_ptr<resource::SoundFile> p;
 			if (audiofiles.find(i) != audiofiles.end()) {
 				p = audiofiles[i];
+			} else {
+				LOG_WARN << "Invalid Sound index: " << i;
 			}
 			return p;
 		}

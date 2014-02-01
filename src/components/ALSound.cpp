@@ -34,6 +34,9 @@ namespace Sigma {
 			albuf = master->buffers[this->buffers[this->bufferindex]]->GetID();
 			if(param != 0 && playlist.size() > 0) {
 				sfi = playlist[playindex];
+				if(master->GetSoundFile(sfi).expired()) {
+					return;
+				}
 				sfp = std::shared_ptr<resource::SoundFile>(master->GetSoundFile(sfi));
 				if(stream) {
 					chancount = sfp->Channels();
